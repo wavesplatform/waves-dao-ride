@@ -1,0 +1,4 @@
+parallel: true
+timeout: 5m
+spec:
+  - 'contracts/**/*.spec.js'
