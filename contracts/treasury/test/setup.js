@@ -17,6 +17,8 @@ const treasuryPath = format({ dir: ridePath, base: 'treasury.ride' })
 export const setupAccounts = async () => {
   const nonce = wc.random(nonceLength, 'Buffer').toString('hex')
   const names = [
+    'config',
+    'votingResult',
     'treasury',
     'admin1',
     'admin2',
@@ -35,6 +37,30 @@ export const setupAccounts = async () => {
   await broadcastAndWait(massTransferTx)
 
   await setScriptFromFile(treasuryPath, accounts.treasury.seed)
+
+  await broadcastAndWait(data({
+    additionalFee: 4e5,
+    data: [
+      {
+        key: '%s__config',
+        type: 'string',
+        value: accounts.config.address
+      }
+    ],
+    chainId
+  }, accounts.treasury.seed))
+
+  await broadcastAndWait(data({
+    additionalFee: 4e5,
+    data: [
+      {
+        key: 'contract_voting_result',
+        type: 'string',
+        value: accounts.votingResult.address
+      }
+    ],
+    chainId
+  }, accounts.config.seed))
 
   const adminsListString = [
     accounts.admin1.address,

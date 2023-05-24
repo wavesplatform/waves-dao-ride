@@ -28,6 +28,16 @@ func keyAdminAddressList() = makeString(["%s", "adminAddressList"], SEP)
 # Allowed TXID key
 func keyAllowedTxId() = makeString(["%s", "txId"], SEP)
 
+func keyConfigAddress() = "%s__config"
+func keyVotingResultAddress() = "contract_voting_result"
+func keyProposalAllowBroadcast(address: Address, txId: ByteVector) = {
+  "proposal_allow_broadcast_" + address.toString() + "_" + txId.toBase58String()
+}
+let configAddress = this.getString(keyConfigAddress()).valueOrErrorMessage(wrapErr("no config"))
+  .addressFromString().valueOrErrorMessage(wrapErr("invalid config address"))
+let votingResultContract = configAddress.getString(keyVotingResultAddress()).valueOrErrorMessage(wrapErr("no voting result address"))
+  .addressFromString().valueOrErrorMessage(wrapErr("invalid voting result address"))
+
 func getAdminVote(prefix: String, admin: String) = {
   let voteKey = keyFullAdminVote(prefix, admin)
   getInteger(voteKey).valueOrElse(0)
@@ -119,8 +129,9 @@ func verify() = {
     .valueOrErrorMessage(wrapErr("tx is not allowed"))
     .fromBase58String()
   let currentAdminList = getAdminsList()
+  let proposalAllowBroadcast = votingResultContract.getBoolean(keyProposalAllowBroadcast(this, tx.id)).valueOrElse(false)
   if (currentAdminList.size() == ADMIN_LIST_SIZE) then {
-    (tx.id == allowedTxId)
+    tx.id == allowedTxId || proposalAllowBroadcast
   } else {
     sigVerify(tx.bodyBytes, tx.proofs[0], tx.senderPublicKey)
   }
