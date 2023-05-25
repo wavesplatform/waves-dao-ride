@@ -36,7 +36,9 @@ describe(`[${process.pid}] treasury: vote for allowed tx`, () => {
           value: [
             accounts.admin1.address,
             accounts.admin2.address,
-            accounts.admin3.address
+            accounts.admin3.address,
+            accounts.admin4.address,
+            accounts.admin5.address
           ].join('__')
         }
       ],
@@ -58,8 +60,8 @@ describe(`[${process.pid}] treasury: vote for allowed tx`, () => {
     return expect(api.transactions.broadcast(dataTx)).to.be.rejectedWith('Transaction is not allowed by account-script')
   })
 
-  it('first vote should increment votes count', async () => {
-    const vote1tx = invokeScript(
+  it('first votes should increment votes count', async () => {
+    await broadcastAndWait(invokeScript(
       {
         dApp: treasury,
         call: {
@@ -69,20 +71,8 @@ describe(`[${process.pid}] treasury: vote for allowed tx`, () => {
         chainId
       },
       accounts.admin1.seed
-    )
-    const vote1 = await broadcastAndWait(vote1tx)
-
-    expect(vote1.stateChanges.data).to.eql([
-      {
-        key: `%s%s%s__allowTxId__${dataTx.id}__${accounts.admin1.address}`,
-        type: 'integer',
-        value: 1
-      }
-    ])
-  })
-
-  it('second vote should approve tx and remove voting data', async () => {
-    const vote2tx = invokeScript(
+    ))
+    await broadcastAndWait(invokeScript(
       {
         dApp: treasury,
         call: {
@@ -91,11 +81,40 @@ describe(`[${process.pid}] treasury: vote for allowed tx`, () => {
         },
         chainId
       },
-      accounts.admin3.seed
-    )
-    const vote2 = await broadcastAndWait(vote2tx)
+      accounts.admin2.seed
+    ))
 
-    expect(vote2.stateChanges.data).to.eql([
+    const allowTxIdVotes = await api.addresses.data(treasury, { matches: encodeURIComponent(`%s%s%s__allowTxId__${dataTx.id}__.+`) })
+
+    expect(allowTxIdVotes).to.deep.include.members([
+      {
+        key: `%s%s%s__allowTxId__${dataTx.id}__${accounts.admin1.address}`,
+        type: 'integer',
+        value: 1
+      },
+      {
+        key: `%s%s%s__allowTxId__${dataTx.id}__${accounts.admin2.address}`,
+        type: 'integer',
+        value: 1
+      }
+    ])
+  })
+
+  it('last vote should approve tx and remove voting data', async () => {
+    const voteTx = invokeScript(
+      {
+        dApp: treasury,
+        call: {
+          function: 'voteForTxId',
+          args: [{ type: 'string', value: dataTx.id }]
+        },
+        chainId
+      },
+      accounts.admin5.seed
+    )
+    const { stateChanges } = await broadcastAndWait(voteTx)
+
+    expect(stateChanges.data).to.eql([
       {
         key: `%s%s%s__allowTxId__${dataTx.id}__${accounts.admin1.address}`,
         value: null
@@ -106,6 +125,14 @@ describe(`[${process.pid}] treasury: vote for allowed tx`, () => {
       },
       {
         key: `%s%s%s__allowTxId__${dataTx.id}__${accounts.admin3.address}`,
+        value: null
+      },
+      {
+        key: `%s%s%s__allowTxId__${dataTx.id}__${accounts.admin4.address}`,
+        value: null
+      },
+      {
+        key: `%s%s%s__allowTxId__${dataTx.id}__${accounts.admin5.address}`,
         value: null
       },
       {

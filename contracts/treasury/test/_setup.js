@@ -23,6 +23,8 @@ export const setupAccounts = async () => {
     'admin1',
     'admin2',
     'admin3',
+    'admin4',
+    'admin5',
     'user1'
   ]
   const accounts = Object.fromEntries(names.map((item) => {

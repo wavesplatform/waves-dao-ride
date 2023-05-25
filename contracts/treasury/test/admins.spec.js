@@ -33,7 +33,9 @@ describe(`[${process.pid}] treasury: admins`, () => {
           value: [
             accounts.admin1.address,
             accounts.admin2.address,
-            accounts.admin3.address
+            accounts.admin3.address,
+            accounts.admin4.address,
+            accounts.admin5.address
           ].join('__')
         }
       ],

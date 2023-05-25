@@ -4,8 +4,8 @@
 
 let SEP = "__"
 let contractFilename = "treasury.ride"
-let ADMIN_LIST_SIZE = 3
-let QUORUM = 2
+let ADMIN_LIST_SIZE = 5
+let QUORUM = 3
 let ADDRESS_BYTES_LENGTH = 26
 let TXID_BYTES_LENGTH = 32
 
@@ -70,7 +70,7 @@ func genVotesKeysHelper(a: (List[String], String), adminAddress: String) = {
 }
 func genVotesKeys(keyPrefix: String) = {
   let adminList = keyAdminAddressList()
-  let (result, prefix) = FOLD<3>(getAdminsList(), ([], keyPrefix), genVotesKeysHelper)
+  let (result, prefix) = FOLD<5>(getAdminsList(), ([], keyPrefix), genVotesKeysHelper)
   result
 }
 
@@ -80,7 +80,7 @@ func countVotesHelper(result: Int, voteKey: String) = {
 }
 func countVotes(prefix: String) = {
   let votes = genVotesKeys(prefix)
-  FOLD<3>(votes, 0, countVotesHelper)
+  FOLD<5>(votes, 0, countVotesHelper)
 }
 
 # Generate DeleteEntry for all votes with Prefix
@@ -89,7 +89,7 @@ func clearVotesHelper(result: List[DeleteEntry], key: String) = {
 }
 func getClearVoteEntries(prefix: String) = {
   let votes = genVotesKeys(prefix)
-  FOLD<3>(votes, [], clearVotesHelper)
+  FOLD<5>(votes, [], clearVotesHelper)
 }
 
 func voteINTERNAL(
@@ -116,7 +116,7 @@ func voteINTERNAL(
   }
 }
 
-# Vote for txId that is allowed in Verifier (quorum: 2 votes)
+# Vote for txId that is allowed in Verifier
 @Callable(i)
 func voteForTxId(txId: String) = {
   let callerAddressString = toBase58String(i.caller.bytes)
