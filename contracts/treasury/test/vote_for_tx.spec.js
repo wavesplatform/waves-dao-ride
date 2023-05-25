@@ -2,7 +2,7 @@ import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import { invokeScript, data } from '@waves/waves-transactions'
 import { api, broadcastAndWait, chainId } from '../../../utils/api.js'
-import { setupAccounts } from './setup.js'
+import { setupAccounts } from './_setup.js'
 
 chai.use(chaiAsPromised)
 const { expect } = chai
@@ -13,6 +13,37 @@ describe(`[${process.pid}] treasury: vote for allowed tx`, () => {
   before(async () => {
     accounts = await setupAccounts()
     treasury = accounts.treasury.address
+
+    await broadcastAndWait(data({
+      additionalFee: 4e5,
+      data: [
+        {
+          key: '%s__config',
+          type: 'string',
+          value: accounts.config.address
+        }
+      ],
+      chainId
+    }, accounts.treasury.seed))
+
+    // set admins
+    const setAdminsTx = data({
+      additionalFee: 4e5,
+      data: [
+        {
+          key: '%s__adminAddressList',
+          type: 'string',
+          value: [
+            accounts.admin1.address,
+            accounts.admin2.address,
+            accounts.admin3.address
+          ].join('__')
+        }
+      ],
+      chainId
+    }, accounts.treasury.seed)
+    await broadcastAndWait(setAdminsTx)
+
     dataTx = data(
       {
         additionalFee: 4e5,
@@ -24,7 +55,7 @@ describe(`[${process.pid}] treasury: vote for allowed tx`, () => {
   })
 
   it('tx should be rejected before vote for allowed txid', async () => {
-    return expect(api.transactions.broadcast(dataTx)).to.be.rejectedWith('tx is not allowed')
+    return expect(api.transactions.broadcast(dataTx)).to.be.rejectedWith('Transaction is not allowed by account-script')
   })
 
   it('first vote should increment votes count', async () => {

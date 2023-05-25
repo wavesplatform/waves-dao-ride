@@ -42,18 +42,6 @@ export const setupAccounts = async () => {
     additionalFee: 4e5,
     data: [
       {
-        key: '%s__config',
-        type: 'string',
-        value: accounts.config.address
-      }
-    ],
-    chainId
-  }, accounts.treasury.seed))
-
-  await broadcastAndWait(data({
-    additionalFee: 4e5,
-    data: [
-      {
         key: 'contract_voting_result',
         type: 'string',
         value: accounts.votingResult.address
@@ -61,24 +49,6 @@ export const setupAccounts = async () => {
     ],
     chainId
   }, accounts.config.seed))
-
-  const adminsListString = [
-    accounts.admin1.address,
-    accounts.admin2.address,
-    accounts.admin3.address
-  ].join('__')
-  const setAdminsTx = data({
-    additionalFee: 4e5,
-    data: [
-      {
-        key: '%s__adminAddressList',
-        type: 'string',
-        value: adminsListString
-      }
-    ],
-    chainId
-  }, accounts.treasury.seed)
-  await broadcastAndWait(setAdminsTx)
 
   const accountsInfo = Object.entries(accounts)
     .map(([name, { seed, address }]) => [name, address])
