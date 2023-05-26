@@ -1,0 +1,27 @@
+{-# STDLIB_VERSION 6 #-}
+{-# CONTENT_TYPE DAPP #-}
+{-# SCRIPT_TYPE ACCOUNT #-}
+
+let SEP = "__"
+let contractFilename = "calculator.ride"
+
+func wrapErr(s: String) = {
+  contractFilename + ": " + s
+}
+
+func throwErr(s: String) = {
+  throw(wrapErr(s))
+}
+
+func keyFactoryAddress() = "%s__factory"
+
+let factoryAddressOption = match this.getString(keyFactoryAddress()) {
+  case s: String => s.addressFromString()
+  case _: Unit => unit
+}
+let factoryAddress = factoryAddressOption.valueOrErrorMessage(wrapErr("invalid factory address"))
+
+@Verifier(tx)
+func verify() = {
+  false
+}

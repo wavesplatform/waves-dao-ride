@@ -1,0 +1,45 @@
+{-# STDLIB_VERSION 6 #-}
+{-# CONTENT_TYPE DAPP #-}
+{-# SCRIPT_TYPE ACCOUNT #-}
+
+let SEP = "__"
+let contractFilename = "factory.ride"
+
+func wrapErr(s: String) = {
+  contractFilename + ": " + s
+}
+
+func throwErr(s: String) = {
+  throw(wrapErr(s))
+}
+
+func keyCalculatorAddress() = "%s__calculator"
+func keyTreasuryAddress() = "%s__treasury"
+
+func keyConfigAddress() = "%s__config"
+func keyVotingResultAddress() = "contract_voting_result"
+func keyProposalAllowBroadcast(address: Address, txId: ByteVector) = {
+  "proposal_allow_broadcast_" + address.toString() + "_" + txId.toBase58String()
+}
+let configAddressOption = match this.getString(keyConfigAddress()) {
+  case s: String => s.addressFromString()
+  case _: Unit => unit
+}
+let configAddress = configAddressOption.valueOrErrorMessage(wrapErr("invalid config address"))
+let votingResultContractOption = match configAddressOption {
+  case a: Address => match a.getString(keyVotingResultAddress()) {
+    case s: String => s.addressFromString()
+    case _: Unit => unit
+  }
+  case _: Unit => unit
+}
+let votingResultContract = votingResultContractOption.valueOrErrorMessage(wrapErr("invalid voting result address"))
+
+@Verifier(tx)
+func verify() = {
+  let byProposal = votingResultContract.getBoolean(keyProposalAllowBroadcast(this, tx.id)).valueOrElse(false)
+  let byOwner = sigVerify(tx.bodyBytes, tx.proofs[0], tx.senderPublicKey)
+  if (votingResultContractOption != unit) then {
+    byProposal
+  } else byOwner
+}
