@@ -138,7 +138,7 @@ func verify() = {
   let byProposal = votingResultContract.getBoolean(keyProposalAllowBroadcast(this, tx.id)).valueOrElse(false)
   let byAdmins = allowedTxIdStringOption != unit && tx.id == allowedTxIdStringOption.value().fromBase58String()
   let byOwner = sigVerify(tx.bodyBytes, tx.proofs[0], tx.senderPublicKey)
-  if (votingResultContractOption != unit && currentAdminList.size() == ADMIN_LIST_SIZE) then {
-    byProposal || byAdmins
+  if (configAddressOption != unit && currentAdminList.size() == ADMIN_LIST_SIZE) then {
+    (votingResultContractOption != unit && byProposal) || byAdmins
   } else byOwner
 }
