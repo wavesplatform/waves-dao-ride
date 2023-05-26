@@ -14,9 +14,16 @@ func throwErr(s: String) = {
 }
 
 func keyCalculatorAddress() = "%s__calculator"
-func keyTreasuryAddress() = "%s__treasury"
+func keyTreasuryAddress() = "%s__treasury" # 3PEgG7eZHLFhcfsTSaYxgRhZsh4AxMvA4Ms
+func keyChildAddress() = "%s__child" # 3PEwRcYNAUtoFvKpBhKoiwajnZfdoDR6h4h
+
+# early investments are stored in contract_children
+# investments_token_<childAddress>
+# investments_total_<childAddress>
+# investor_<childAddress>_<userAddress>
 
 func keyConfigAddress() = "%s__config"
+func keyChildrenAddress() = "contract_children"
 func keyVotingResultAddress() = "contract_voting_result"
 func keyProposalAllowBroadcast(address: Address, txId: ByteVector) = {
   "proposal_allow_broadcast_" + address.toString() + "_" + txId.toBase58String()
