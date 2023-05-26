@@ -6,7 +6,6 @@ let SEP = "__"
 let contractFilename = "treasury.ride"
 let ADMIN_LIST_SIZE = 5
 let QUORUM = 3
-let ADDRESS_BYTES_LENGTH = 26
 let TXID_BYTES_LENGTH = 32
 
 func wrapErr(s: String) = {
@@ -122,12 +121,12 @@ func voteForTxId(txId: String) = {
   let callerAddressString = toBase58String(i.caller.bytes)
   let keyPrefix = keyAllowedTxIdVotePrefix(txId)
   let result = [ StringEntry(keyAllowedTxId(), txId) ]
+  let allowedTxIdOption = this.getString(keyAllowedTxId())
   
-  strict err = if (txId.fromBase58String().size() != TXID_BYTES_LENGTH) then {
-    throwErr(txId + " is not valid txId")
-  } else {
-    unit 
-  }
+  strict err = [
+    txId.fromBase58String().size() == TXID_BYTES_LENGTH || throwErr(txId + " is not valid txId"),
+    allowedTxIdOption == unit || allowedTxIdOption.value() != txId || throwErr(txId + " is already allowed")
+  ]
 
   voteINTERNAL(callerAddressString, keyPrefix, QUORUM, result)
 }

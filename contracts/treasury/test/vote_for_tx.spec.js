@@ -143,6 +143,22 @@ describe(`[${process.pid}] treasury: vote for allowed tx`, () => {
     ])
   })
 
+  it('vote should be failed if tx is already allowed', async () => {
+    const voteTx = invokeScript(
+      {
+        dApp: treasury,
+        call: {
+          function: 'voteForTxId',
+          args: [{ type: 'string', value: dataTx.id }]
+        },
+        chainId
+      },
+      accounts.admin3.seed
+    )
+
+    return expect(broadcastAndWait(voteTx)).to.be.rejectedWith(`${dataTx.id} is already allowed`)
+  })
+
   it('tx should be allowed after vote for allowed txid', async () => {
     return expect(broadcastAndWait(dataTx)).to.be.fulfilled
   })
