@@ -14,18 +14,36 @@ func throwErr(s: String) = {
 }
 
 func keyFactoryAddress() = "%s__factory"
+func keyAvailable(userAddress: Address) = "%s%s__available__" + userAddress.toString()
+func keyClaimed(userAddress: Address) = "%s%s__claimed__" + userAddress.toString()
 
 let factoryAddressOption = match this.getString(keyFactoryAddress()) {
   case s: String => s.addressFromString()
   case _: Unit => unit
 }
-let factoryAddress = factoryAddressOption.valueOrErrorMessage(wrapErr("invalid factory address"))
+let factoryAddressOrFail = factoryAddressOption.valueOrErrorMessage(wrapErr("invalid factory address"))
+
+func onlyAddress(i: Invocation, address: Address) = {
+  i.caller == address || throwErr("permission denied")
+}
+
+func onlyFactory(i: Invocation) = {
+  onlyAddress(i, factoryAddressOrFail)
+}
 
 @Callable(i)
-func claimLP() = {
-  # claim for common investor
-  # claim for miner
-  (nil, unit)
+func claimLP(userAddressBytes: ByteVector) = {
+  strict checkCaller = i.onlyFactory()
+  let userAddress = Address(userAddressBytes)
+  let available = factoryAddressOrFail.getInteger(keyAvailable(userAddress)).valueOrElse(0)
+  let claimed = factoryAddressOrFail.getInteger(keyClaimed(userAddress)).valueOrElse(0)
+  let actions = if (available > 0) then [
+    ScriptTransfer(userAddress, available, unit),
+    IntegerEntry(keyAvailable(userAddress), 0),
+    IntegerEntry(keyClaimed(userAddress), claimed + available)
+  ] else []
+
+  (actions, available)
 }
 
 @Verifier(tx)

@@ -71,7 +71,7 @@ let childrenAddressOption = match configAddressOption {
 let childrenAddressOrFail = childrenAddressOption.valueOrErrorMessage(wrapErr("invalid children address"))
 
 @Callable(i)
-func claimLP() = (nil, calculatorAddressOrFail.invoke("claimLP", [], []))
+func claimLP() = (nil, calculatorAddressOrFail.invoke("claimLP", [i.caller.bytes], []))
 
 @Verifier(tx)
 func verify() = {
