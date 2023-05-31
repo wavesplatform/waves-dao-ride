@@ -115,6 +115,17 @@ func voteINTERNAL(
   }
 }
 
+func rewardForOption(rewards: List[(Address, Int)], target: Address) = {
+  let s = rewards.size()
+  let (a0, r0) = rewards[0]
+  let (a1, r1) = rewards[1]
+  let (a2, r2) = rewards[2]
+  if (s > 0 && a0 == target) then r0 
+  else if (s > 1 && a1 == target) then r1
+  else if (s > 2 && a2 == target) then r2
+  else unit
+}
+
 # Vote for txId that is allowed in Verifier
 @Callable(i)
 func voteForTxId(txId: String) = {
