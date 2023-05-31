@@ -56,6 +56,16 @@ func claimLP(userAddressBytes: ByteVector) = {
   (actions, available)
 }
 
+@Callable(i)
+func topUp(
+  newTreasuryVolumeInWaves: Int,
+  xtnPrice: Int,
+  pwrManagersBonus: Int, # 0..1×10⁸
+  treasuryVolumeDiffAllocationCoef: Int # -1..1×10⁸
+) = {
+  (nil, unit)
+}
+
 @Verifier(tx)
 func verify() = {
   false
