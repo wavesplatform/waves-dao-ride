@@ -17,6 +17,8 @@ func keyCalculatorAddress() = "%s__calculator"
 func keyTreasuryAddress() = "%s__treasury" # 3PEgG7eZHLFhcfsTSaYxgRhZsh4AxMvA4Ms
 func keyChildAddress() = "%s__child" # 3PEwRcYNAUtoFvKpBhKoiwajnZfdoDR6h4h
 
+func keyLpAssetId() = "%s__lpAssetId"
+
 let calculatorAddressOption = match this.getString(keyCalculatorAddress()) {
   case s: String => s.addressFromString()
   case _: Unit => unit
@@ -69,6 +71,14 @@ let childrenAddressOption = match configAddressOption {
   case _: Unit => unit
 }
 let childrenAddressOrFail = childrenAddressOption.valueOrErrorMessage(wrapErr("invalid children address"))
+
+func onlyAddress(i: Invocation, address: Address) = {
+  i.caller == address || throwErr("permission denied")
+}
+
+func onlyThis(i: Invocation) = {
+  onlyAddress(i, this)
+}
 
 @Callable(i)
 func claimLP() = (nil, calculatorAddressOrFail.invoke("claimLP", [i.caller.bytes], []))
