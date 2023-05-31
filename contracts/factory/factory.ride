@@ -17,36 +17,67 @@ func keyCalculatorAddress() = "%s__calculator"
 func keyTreasuryAddress() = "%s__treasury" # 3PEgG7eZHLFhcfsTSaYxgRhZsh4AxMvA4Ms
 func keyChildAddress() = "%s__child" # 3PEwRcYNAUtoFvKpBhKoiwajnZfdoDR6h4h
 
-# early investments are stored in contract_children
-# investments_token_<childAddress>
-# investments_total_<childAddress>
-# investor_<childAddress>_<userAddress>
+let calculatorAddressOption = match this.getString(keyCalculatorAddress()) {
+  case s: String => s.addressFromString()
+  case _: Unit => unit
+}
+let calculatorAddressOrFail = calculatorAddressOption.valueOrErrorMessage(wrapErr("invalid calculator address"))
 
 func keyConfigAddress() = "%s__config"
+
+# config keys
 func keyChildrenAddress() = "contract_children"
 func keyVotingResultAddress() = "contract_voting_result"
+
+# voting result keys
 func keyProposalAllowBroadcast(address: Address, txId: ByteVector) = {
   "proposal_allow_broadcast_" + address.toString() + "_" + txId.toBase58String()
 }
+
+# children keys
+# early investments are stored in config.contract_children
+# investments_token_<childAddress>
+# investments_total_<childAddress>
+# investor_<childAddress>_<userAddress>
+func keyInvestedByUser(childAddress: Address, userAddress: Address) = [
+  "investor",
+  childAddress.toString(),
+  userAddress.toString()
+].makeString("_")
+
+
 let configAddressOption = match this.getString(keyConfigAddress()) {
   case s: String => s.addressFromString()
   case _: Unit => unit
 }
-let configAddress = configAddressOption.valueOrErrorMessage(wrapErr("invalid config address"))
-let votingResultContractOption = match configAddressOption {
+let configAddressOrFail = configAddressOption.valueOrErrorMessage(wrapErr("invalid config address"))
+
+let votingResultAddressOption = match configAddressOption {
   case a: Address => match a.getString(keyVotingResultAddress()) {
     case s: String => s.addressFromString()
     case _: Unit => unit
   }
   case _: Unit => unit
 }
-let votingResultContract = votingResultContractOption.valueOrErrorMessage(wrapErr("invalid voting result address"))
+let votingResultAddressOrFail = votingResultAddressOption.valueOrErrorMessage(wrapErr("invalid voting result address"))
+
+let childrenAddressOption = match configAddressOption {
+  case a: Address => match a.getString(keyChildrenAddress()) {
+    case s: String => s.addressFromString()
+    case _: Unit => unit
+  }
+  case _: Unit => unit
+}
+let childrenAddressOrFail = childrenAddressOption.valueOrErrorMessage(wrapErr("invalid children address"))
+
+@Callable(i)
+func claimLP() = (nil, calculatorAddressOrFail.invoke("claimLP", [], []))
 
 @Verifier(tx)
 func verify() = {
-  let byProposal = votingResultContract.getBoolean(keyProposalAllowBroadcast(this, tx.id)).valueOrElse(false)
+  let byProposal = votingResultAddressOrFail.getBoolean(keyProposalAllowBroadcast(this, tx.id)).valueOrElse(false)
   let byOwner = sigVerify(tx.bodyBytes, tx.proofs[0], tx.senderPublicKey)
-  if (votingResultContractOption != unit) then {
+  if (votingResultAddressOption != unit) then {
     byProposal
   } else byOwner
 }

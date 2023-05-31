@@ -21,6 +21,13 @@ let factoryAddressOption = match this.getString(keyFactoryAddress()) {
 }
 let factoryAddress = factoryAddressOption.valueOrErrorMessage(wrapErr("invalid factory address"))
 
+@Callable(i)
+func claimLP() = {
+  # claim for common investor
+  # claim for miner
+  (nil, unit)
+}
+
 @Verifier(tx)
 func verify() = {
   false
