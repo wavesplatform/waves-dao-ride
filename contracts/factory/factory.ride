@@ -80,6 +80,37 @@ func onlyThis(i: Invocation) = {
   onlyAddress(i, this)
 }
 
+func onlyCalculator(i: Invocation) = {
+  onlyAddress(i, calculatorAddressOrFail)
+}
+
+@Callable(i)
+func stringEntry(key: String, val: String) =
+  if (i.onlyCalculator()) then ([StringEntry(key, val)], key) else ([], unit)
+
+@Callable(i)
+func integerEntry(key: String, val: Int) =
+  if (i.onlyCalculator()) then ([IntegerEntry(key, val)], key) else ([], unit)
+
+@Callable(i)
+func booleanEntry(key: String, val: Boolean) =
+  if (i.onlyCalculator()) then ([BooleanEntry(key, val)], key) else ([], unit)
+
+@Callable(i)
+func binaryEntry(key: String, val: ByteVector) =
+  if (i.onlyCalculator()) then ([BinaryEntry(key, val)], key) else ([], unit)
+
+@Callable(i)
+func deleteEntry(key: String) =
+  if (i.onlyCalculator()) then ([DeleteEntry(key)], key) else ([], unit)
+
+@Callable(i)
+func emit(amount: Int) = {
+  strict checkCaller = i.onlyCalculator()
+
+  (nil, unit)
+}
+
 @Callable(i)
 func claimLP() = (nil, calculatorAddressOrFail.invoke("claimLP", [i.caller.bytes], []))
 
