@@ -58,12 +58,32 @@ func claimLP(userAddressBytes: ByteVector) = {
 
 # payment in waves to fulfill all withdrawal requests
 @Callable(i)
-func topUp(
+func finalize(
   newTreasuryVolumeInWaves: Int,
   xtnPrice: Int,
   pwrManagersBonus: Int, # 0..1×10⁸
   treasuryVolumeDiffAllocationCoef: Int # -1..1×10⁸
 ) = {
+  (nil, unit)
+}
+
+@Callable(i)
+func claimWaves(userAddressBytes: ByteVector, epoch: Int) = {
+  (nil, unit)
+}
+
+@Callable(i)
+func invest(userAddressBytes: ByteVector) = {
+  (nil, unit)
+}
+
+@Callable(i)
+func withdraw(userAddressBytes: ByteVector) = {
+  (nil, unit)
+}
+
+@Callable(i)
+func cancelWithdraw(userAddressBytes: ByteVector, txId: ByteVector) = {
   (nil, unit)
 }
 

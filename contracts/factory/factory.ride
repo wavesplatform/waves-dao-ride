@@ -112,7 +112,28 @@ func emit(amount: Int) = {
 }
 
 @Callable(i)
-func claimLP() = (nil, calculatorAddressOrFail.invoke("claimLP", [i.caller.bytes], []))
+func finalize() =
+  (nil, calculatorAddressOrFail.invoke("finalize", [i.caller.bytes], i.payments))
+
+@Callable(i)
+func claimLP() =
+  (nil, calculatorAddressOrFail.invoke("claimLP", [i.caller.bytes], i.payments))
+
+@Callable(i)
+func claimWaves(epoch: Int) =
+  (nil, calculatorAddressOrFail.invoke("claimWaves", [i.caller.bytes, epoch], i.payments))
+
+@Callable(i)
+func invest() =
+  (nil, calculatorAddressOrFail.invoke("invest", [i.caller.bytes], i.payments))
+
+@Callable(i)
+func withdraw() =
+  (nil, calculatorAddressOrFail.invoke("withdraw", [i.caller.bytes], i.payments))
+
+@Callable(i)
+func cancelWithdraw(txIdStr: String) =
+  (nil, calculatorAddressOrFail.invoke("cancelWithdraw", [i.caller.bytes, txIdStr.fromBase58String()], i.payments))
 
 @Verifier(tx)
 func verify() = {
