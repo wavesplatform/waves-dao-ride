@@ -111,6 +111,7 @@ func emit(amount: Int) = {
   (nil, unit)
 }
 
+# finalize period
 @Callable(i)
 func finalize() =
   (nil, calculatorAddressOrFail.invoke("finalize", [i.caller.bytes], i.payments))
@@ -134,6 +135,10 @@ func withdraw() =
 @Callable(i)
 func cancelWithdraw(txIdStr: String) =
   (nil, calculatorAddressOrFail.invoke("cancelWithdraw", [i.caller.bytes, txIdStr.fromBase58String()], i.payments))
+
+# process miners blocks
+@Callable(i)
+func processBlocks() = (nil, calculatorAddressOrFail.invoke("processBlocks", [i.caller.bytes], i.payments))
 
 @Verifier(tx)
 func verify() = {
