@@ -3,24 +3,30 @@
 {-# SCRIPT_TYPE ACCOUNT #-}
 
 let SEP = "__"
-let contractFilename = "calculator.ride"
-let priceScale = 100_000_000
+let CONTRACT_NAME = "calculator.ride"
+let PRICE_SCALE = 100_000_000
+let PENDING = "PENDING"
+let FINISHED = "FINISHED"
 
 func wrapErr(s: String) = {
-  contractFilename + ": " + s
+  CONTRACT_NAME + ": " + s
 }
 
 func throwErr(s: String) = {
   throw(wrapErr(s))
 }
 
-func keyFactoryAddress() = "%s__factory"
-func keyLpAssetId() = "%s__lpAssetId"
-func keyTreasuryAddress() = "%s__treasury"
-func keyAvailable(userAddress: Address) = "%s%s__available__" + userAddress.toString()
-func keyClaimed(userAddress: Address) = "%s%s__claimed__" + userAddress.toString()
-func keyCurrentPeriod() = "%s__currentPeriod"
-func keyPriceForPeriod(period: Int) = "%s%d__price__" + period.toString()
+func keyFactoryAddress() = ["%s", "factory"].makeString(SEP)
+func keyLpAssetId() = ["%s", "lpAssetId"].makeString(SEP)
+func keyTreasuryAddress() = ["%s", "treasury"].makeString(SEP)
+func keyAvailable(userAddress: Address) = ["%s%s", "available", userAddress.toString()].makeString(SEP)
+func keyClaimed(userAddress: Address) = ["%s%s", "claimed", userAddress.toString()].makeString(SEP)
+func keyCurrentPeriod() = ["%s", "currentPeriod"].makeString(SEP)
+func keyPriceForPeriod(period: Int) = ["%s%d", "price", period.toString()].makeString(SEP)
+func keyWithdrawalRequest(userAddress: Address, txId: ByteVector) =
+  ["%s%s%s", "withdrawal", userAddress.toString(), txId.toBase58String()].makeString(SEP)
+func valueWithdrawalRequest(status: String, lpAssetAmount: Int, targetPeriod: Int, claimTxId: String|Unit) =
+  ["%s%d%d%s", status, lpAssetAmount.toString(), targetPeriod.toString(), claimTxId.valueOrElse("SOON")].makeString(SEP)
 
 let factoryAddressOption = match this.getString(keyFactoryAddress()) {
   case s: String => s.addressFromString()
@@ -107,7 +113,7 @@ func invest(userAddressBytes: ByteVector) = {
   let payment = if (i.payments.size() == 1) then i.payments[0] else throwErr("invalid payments")
   let paymentAssetId = if (payment.assetId == unit) then unit else throwErr("invalid payment asset")
   let paymentAmount = if (payment.amount > 0) then payment.amount else throwErr("invalid payment amount")
-  let lpAssetAmount = if (currentPriceOrFail > 0) then fraction(paymentAmount, priceScale, currentPriceOrFail) else 0
+  let lpAssetAmount = if (currentPriceOrFail > 0) then fraction(paymentAmount, PRICE_SCALE, currentPriceOrFail) else 0
   
   # TODO: increase invested amount
   strict stateMutations = [
@@ -122,7 +128,23 @@ func invest(userAddressBytes: ByteVector) = {
 
 @Callable(i)
 func withdraw(userAddressBytes: ByteVector) = {
-  (nil, unit)
+  let userAddress = Address(userAddressBytes)
+  let currentPeriodOrFail =
+    factoryAddressOrFail.getInteger(keyCurrentPeriod()).valueOrErrorMessage("invalid period")
+  let payment = if (i.payments.size() == 1) then i.payments[0] else throwErr("invalid payments")
+  let paymentAssetId = if (payment.assetId == lpAssetIdOrFail) then lpAssetIdOrFail else throwErr("invalid payment asset")
+  let paymentAmount = if (payment.amount > 0) then payment.amount else throwErr("invalid payment amount")
+
+  strict stateMutations = [
+    factoryAddressOrFail.invoke("stringEntry", [
+      keyWithdrawalRequest(userAddress, i.transactionId),
+      valueWithdrawalRequest(PENDING, paymentAmount, currentPeriodOrFail + 1, unit)
+    ], [])
+  ]
+
+  ([
+    ScriptTransfer(factoryAddressOrFail, paymentAmount, paymentAssetId)
+  ], unit)
 }
 
 @Callable(i)
