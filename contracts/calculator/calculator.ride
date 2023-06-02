@@ -25,8 +25,13 @@ func keyCurrentPeriod() = ["%s", "currentPeriod"].makeString(SEP)
 func keyPriceForPeriod(period: Int) = ["%s%d", "price", period.toString()].makeString(SEP)
 func keyWithdrawalRequest(userAddress: Address, txId: ByteVector) =
   ["%s%s%s", "withdrawal", userAddress.toString(), txId.toBase58String()].makeString(SEP)
-func valueWithdrawalRequest(status: String, lpAssetAmount: Int, targetPeriod: Int, claimTxId: String|Unit) =
-  ["%s%d%d%s", status, lpAssetAmount.toString(), targetPeriod.toString(), claimTxId.valueOrElse("SOON")].makeString(SEP)
+func valueWithdrawalRequest(status: String, lpAssetAmount: Int, targetPeriod: Int, claimTxId: ByteVector|Unit) = {
+  let claimTxIdStr = match claimTxId {
+    case b: ByteVector => b.toBase58String()
+    case _: Unit => "SOON"
+  }
+  ["%s%d%d%s", status, lpAssetAmount.toString(), targetPeriod.toString(), claimTxIdStr].makeString(SEP)
+}
 func parseWithdrawalRequestValueOrFail(s: String) = {
   let parts = s.split(SEP)
   if (parts.size() == 5) then {
@@ -127,6 +132,7 @@ func invest(userAddressBytes: ByteVector) = {
     factoryAddressOrFail.invoke("integerEntry", ["invested__WAVES", 0], [])
   ]
 
+  # TODO: emit lp tokens
   ([
     ScriptTransfer(userAddress, lpAssetAmount, lpAssetIdOrFail),
     ScriptTransfer(treasuryAddressOrFail, paymentAmount, paymentAssetId)
@@ -177,8 +183,33 @@ func cancelWithdraw(userAddressBytes: ByteVector, txId: ByteVector) = {
 }
 
 @Callable(i)
-func claimWaves(userAddressBytes: ByteVector, epoch: Int) = {
-  (nil, unit)
+func claimWaves(userAddressBytes: ByteVector, txId: ByteVector) = {
+  let userAddress = Address(userAddressBytes)
+  let currentPeriodOrFail =
+    factoryAddressOrFail.getInteger(keyCurrentPeriod()).valueOrErrorMessage("invalid period")
+  let withdrawalRequestOption = factoryAddressOrFail
+    .getString(keyWithdrawalRequest(userAddress, txId))
+    .valueOrErrorMessage("invalid withdrawal request")
+  let (status, lpAssetAmount, targetPeriod, claimTxId) = parseWithdrawalRequestValueOrFail(withdrawalRequestOption)
+  if (status == FINISHED) then {
+    throwErr("invalid withdrawal request status")
+  } else if (currentPeriodOrFail < targetPeriod) then {
+    throwErr("invalid withdrawal request period")
+  } else {
+    # TODO: burn lp tokens
+    let stateMutations = [
+      factoryAddressOrFail.invoke("stringEntry", [
+        keyWithdrawalRequest(userAddress, txId),
+        valueWithdrawalRequest(FINISHED, lpAssetAmount, targetPeriod, i.transactionId)
+      ], [])
+    ]
+    let currentPriceOrFail =
+      factoryAddressOrFail.getInteger(keyPriceForPeriod(currentPeriodOrFail)).valueOrErrorMessage("invalid price")
+    let amount = if (currentPriceOrFail > 0) then fraction(lpAssetAmount, currentPriceOrFail, PRICE_SCALE) else 0
+    ([
+      ScriptTransfer(userAddress, amount, unit)
+    ], stateMutations)
+  }
 }
 
 @Verifier(tx)

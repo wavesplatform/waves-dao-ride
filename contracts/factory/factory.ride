@@ -122,8 +122,8 @@ func claimLP() =
   (nil, calculatorAddressOrFail.invoke("claimLP", [i.caller.bytes], i.payments))
 
 @Callable(i)
-func claimWaves(epoch: Int) =
-  (nil, calculatorAddressOrFail.invoke("claimWaves", [i.caller.bytes, epoch], i.payments))
+func claimWaves(txIdStr: String) =
+  (nil, calculatorAddressOrFail.invoke("claimWaves", [i.caller.bytes, txIdStr.fromBase58String()], i.payments))
 
 @Callable(i)
 func invest() =
