@@ -72,6 +72,12 @@ let childrenAddressOption = match configAddressOption {
 }
 let childrenAddressOrFail = childrenAddressOption.valueOrErrorMessage(wrapErr("invalid children address"))
 
+let lpAssetIdOption = match this.getString(keyLpAssetId()) {
+  case s: String => s.fromBase58String()
+  case _: Unit => unit
+}
+let lpAssetIdOrFail = lpAssetIdOption.valueOrErrorMessage(wrapErr("invalid lpAssetId"))
+
 func onlyAddress(i: Invocation, address: Address) = {
   i.caller == address || throwErr("permission denied")
 }
@@ -104,13 +110,13 @@ func binaryEntry(key: String, val: ByteVector) =
 func deleteEntry(key: String) =
   if (i.onlyCalculator()) then ([DeleteEntry(key)], key) else ([], unit)
 
+@Callable(i)
+func reissue(amount: Int) = 
+  if (i.onlyCalculator()) then ([Reissue(lpAssetIdOrFail, amount, true)], amount) else ([], unit)
 
 @Callable(i)
-func emit(amount: Int) = {
-  strict checkCaller = i.onlyCalculator()
-
-  (nil, unit)
-}
+func burn(amount: Int) = 
+  if (i.onlyCalculator()) then ([Burn(lpAssetIdOrFail, amount)], amount) else ([], unit)
 
 # finalize period
 @Callable(i)
