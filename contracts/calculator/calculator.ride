@@ -94,13 +94,21 @@ func claimLP(userAddressBytes: ByteVector) = {
   let userAddress = Address(userAddressBytes)
   let available = factoryAddressOrFail.getInteger(keyAvailable(userAddress)).valueOrElse(0)
   let claimed = factoryAddressOrFail.getInteger(keyClaimed(userAddress)).valueOrElse(0)
-  let actions = if (available > 0) then [
-    ScriptTransfer(userAddress, available, lpAssetIdOrFail),
-    IntegerEntry(keyAvailable(userAddress), 0),
-    IntegerEntry(keyClaimed(userAddress), claimed + available)
+  let factoryActions = if (available > 0) then [
+    factoryAddressOrFail.invoke("transferAsset", [
+      userAddressBytes, available, lpAssetIdOrFail
+    ], []),
+    factoryAddressOrFail.invoke("integerEntry", [
+      keyAvailable(userAddress),
+      0
+    ], []),
+    factoryAddressOrFail.invoke("stringEntry", [
+      keyClaimed(userAddress),
+      claimed + available
+    ], [])
   ] else []
 
-  (actions, available)
+  (nil, factoryActions)
 }
 
 # payment in waves to fulfill all withdrawal requests
@@ -123,20 +131,24 @@ func invest(userAddressBytes: ByteVector) = {
   let currentPriceOrFail =
     factoryAddressOrFail.getInteger(keyPriceForPeriod(currentPeriodOrFail)).valueOrErrorMessage("invalid price")
   let payment = if (i.payments.size() == 1) then i.payments[0] else throwErr("invalid payments")
-  let paymentAssetId = if (payment.assetId == unit) then unit else throwErr("invalid payment asset")
-  let paymentAmount = if (payment.amount > 0) then payment.amount else throwErr("invalid payment amount")
+  let paymentAmount = if (payment.assetId == unit && payment.amount > 0) then {
+    payment.amount
+  } else throwErr("invalid payment amount")
   let lpAssetAmount = if (currentPriceOrFail > 0) then fraction(paymentAmount, PRICE_SCALE, currentPriceOrFail) else 0
   
-  # TODO: increase invested amount
-  strict stateMutations = [
-    factoryAddressOrFail.invoke("integerEntry", ["invested__WAVES", 0], [])
+  let factoryActions = [
+    # TODO: increase invested amount
+    factoryAddressOrFail.invoke("integerEntry", ["invested__WAVES", 0], []),
+    factoryAddressOrFail.invoke("reissue", [lpAssetAmount], []),
+    factoryAddressOrFail.invoke("transferAsset", [
+      userAddressBytes, lpAssetAmount, lpAssetIdOrFail
+    ], []),
+    factoryAddressOrFail.invoke("transferWaves", [
+      treasuryAddressOrFail.bytes, paymentAmount
+    ], [AttachedPayment(unit, paymentAmount)])
   ]
 
-  # TODO: emit lp tokens
-  ([
-    ScriptTransfer(userAddress, lpAssetAmount, lpAssetIdOrFail),
-    ScriptTransfer(treasuryAddressOrFail, paymentAmount, paymentAssetId)
-  ], lpAssetAmount)
+  (nil, factoryActions)
 }
 
 @Callable(i)
@@ -149,7 +161,7 @@ func withdraw(userAddressBytes: ByteVector) = {
   let paymentAmount = if (payment.amount > 0) then payment.amount else throwErr("invalid payment amount")
 
   # TODO: increase total withdrawal amount
-  strict stateMutations = [
+  strict factoryActions = [
     factoryAddressOrFail.invoke("stringEntry", [
       keyWithdrawalRequest(userAddress, i.transactionId),
       valueWithdrawalRequest(PENDING, paymentAmount, currentPeriodOrFail + 1, unit)
@@ -158,7 +170,7 @@ func withdraw(userAddressBytes: ByteVector) = {
 
   ([
     ScriptTransfer(factoryAddressOrFail, paymentAmount, paymentAssetId)
-  ], unit)
+  ], factoryActions)
 }
 
 @Callable(i)
@@ -169,14 +181,15 @@ func cancelWithdraw(userAddressBytes: ByteVector, txId: ByteVector) = {
     .valueOrErrorMessage("invalid withdrawal request")
   let (status, lpAssetAmount, targetPeriod, claimTxId) = parseWithdrawalRequestValueOrFail(withdrawalRequestOption)
   if (status == PENDING) then {
-    strict stateMutations = [
+    strict factoryActions = [
       factoryAddressOrFail.invoke("deleteEntry", [
         keyWithdrawalRequest(userAddress, txId)
+      ], []),
+      factoryAddressOrFail.invoke("transferAsset", [
+        userAddressBytes, lpAssetAmount, lpAssetIdOrFail
       ], [])
     ]
-    ([
-      ScriptTransfer(userAddress, lpAssetAmount, lpAssetIdOrFail)
-    ], unit)
+    (nil, factoryActions)
   } else {
     throwErr("invalid withdrawal request status")
   }
@@ -196,19 +209,18 @@ func claimWaves(userAddressBytes: ByteVector, txId: ByteVector) = {
   } else if (currentPeriodOrFail < targetPeriod) then {
     throwErr("invalid withdrawal request period")
   } else {
-    # TODO: burn lp tokens
-    let stateMutations = [
-      factoryAddressOrFail.invoke("stringEntry", [
-        keyWithdrawalRequest(userAddress, txId),
-        valueWithdrawalRequest(FINISHED, lpAssetAmount, targetPeriod, i.transactionId)
-      ], [])
-    ]
     let currentPriceOrFail =
       factoryAddressOrFail.getInteger(keyPriceForPeriod(currentPeriodOrFail)).valueOrErrorMessage("invalid price")
     let amount = if (currentPriceOrFail > 0) then fraction(lpAssetAmount, currentPriceOrFail, PRICE_SCALE) else 0
-    ([
-      ScriptTransfer(userAddress, amount, unit)
-    ], stateMutations)
+    let factoryActions = [
+      factoryAddressOrFail.invoke("stringEntry", [
+        keyWithdrawalRequest(userAddress, txId),
+        valueWithdrawalRequest(FINISHED, lpAssetAmount, targetPeriod, i.transactionId)
+      ], []),
+      factoryAddressOrFail.invoke("burn", [lpAssetAmount], []),
+      factoryAddressOrFail.invoke("transferWaves", [userAddressBytes, amount], [])
+    ]
+    (nil, factoryActions)
   }
 }
 

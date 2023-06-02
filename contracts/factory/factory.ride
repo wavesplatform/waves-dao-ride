@@ -118,6 +118,14 @@ func reissue(amount: Int) =
 func burn(amount: Int) = 
   if (i.onlyCalculator()) then ([Burn(lpAssetIdOrFail, amount)], amount) else ([], unit)
 
+@Callable(i)
+func transferAsset(recepientBytes: ByteVector, amount: Int, assetId: ByteVector) = 
+  if (i.onlyCalculator()) then ([ScriptTransfer(Address(recepientBytes), amount, assetId)], amount) else ([], unit)
+
+@Callable(i)
+func transferWaves(recepientBytes: ByteVector, amount: Int) = 
+  if (i.onlyCalculator()) then ([ScriptTransfer(Address(recepientBytes), amount, unit)], amount) else ([], unit)
+
 # finalize period
 @Callable(i)
 func finalize() =
