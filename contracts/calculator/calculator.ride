@@ -27,6 +27,18 @@ func keyWithdrawalRequest(userAddress: Address, txId: ByteVector) =
   ["%s%s%s", "withdrawal", userAddress.toString(), txId.toBase58String()].makeString(SEP)
 func valueWithdrawalRequest(status: String, lpAssetAmount: Int, targetPeriod: Int, claimTxId: String|Unit) =
   ["%s%d%d%s", status, lpAssetAmount.toString(), targetPeriod.toString(), claimTxId.valueOrElse("SOON")].makeString(SEP)
+func parseWithdrawalRequestValueOrFail(s: String) = {
+  let parts = s.split(SEP)
+  if (parts.size() == 5) then {
+    let status = parts[1]
+    let lpAssetAmount = parts[2].parseInt().valueOrErrorMessage("invalid lpAssetAmount")
+    let targetPeriod = parts[3].parseInt().valueOrErrorMessage("invalid targetPeriod")
+    let claimTxId = parts[4]
+    (status, lpAssetAmount, targetPeriod, claimTxId)
+  } else {
+    throwErr("invalid withdrawal request value")
+  }
+}
 
 let factoryAddressOption = match this.getString(keyFactoryAddress()) {
   case s: String => s.addressFromString()
@@ -97,11 +109,6 @@ func finalize(
   (nil, unit)
 }
 
-@Callable(i)
-func claimWaves(userAddressBytes: ByteVector, epoch: Int) = {
-  (nil, unit)
-}
-
 # payment in waves
 @Callable(i)
 func invest(userAddressBytes: ByteVector) = {
@@ -135,6 +142,7 @@ func withdraw(userAddressBytes: ByteVector) = {
   let paymentAssetId = if (payment.assetId == lpAssetIdOrFail) then lpAssetIdOrFail else throwErr("invalid payment asset")
   let paymentAmount = if (payment.amount > 0) then payment.amount else throwErr("invalid payment amount")
 
+  # TODO: increase total withdrawal amount
   strict stateMutations = [
     factoryAddressOrFail.invoke("stringEntry", [
       keyWithdrawalRequest(userAddress, i.transactionId),
@@ -149,6 +157,27 @@ func withdraw(userAddressBytes: ByteVector) = {
 
 @Callable(i)
 func cancelWithdraw(userAddressBytes: ByteVector, txId: ByteVector) = {
+  let userAddress = Address(userAddressBytes)
+  let withdrawalRequestOption = factoryAddressOrFail
+    .getString(keyWithdrawalRequest(userAddress, txId))
+    .valueOrErrorMessage("invalid withdrawal request")
+  let (status, lpAssetAmount, targetPeriod, claimTxId) = parseWithdrawalRequestValueOrFail(withdrawalRequestOption)
+  if (status == PENDING) then {
+    strict stateMutations = [
+      factoryAddressOrFail.invoke("deleteEntry", [
+        keyWithdrawalRequest(userAddress, txId)
+      ], [])
+    ]
+    ([
+      ScriptTransfer(userAddress, lpAssetAmount, lpAssetIdOrFail)
+    ], unit)
+  } else {
+    throwErr("invalid withdrawal request status")
+  }
+}
+
+@Callable(i)
+func claimWaves(userAddressBytes: ByteVector, epoch: Int) = {
   (nil, unit)
 }
 
