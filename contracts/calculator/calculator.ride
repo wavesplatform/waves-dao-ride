@@ -4,6 +4,7 @@
 
 let SEP = "__"
 let contractFilename = "calculator.ride"
+let priceScale = 100_000_000
 
 func wrapErr(s: String) = {
   contractFilename + ": " + s
@@ -15,8 +16,11 @@ func throwErr(s: String) = {
 
 func keyFactoryAddress() = "%s__factory"
 func keyLpAssetId() = "%s__lpAssetId"
+func keyTreasuryAddress() = "%s__treasury"
 func keyAvailable(userAddress: Address) = "%s%s__available__" + userAddress.toString()
 func keyClaimed(userAddress: Address) = "%s%s__claimed__" + userAddress.toString()
+func keyCurrentPeriod() = "%s__currentPeriod"
+func keyPriceForPeriod(period: Int) = "%s%d__price__" + period.toString()
 
 let factoryAddressOption = match this.getString(keyFactoryAddress()) {
   case s: String => s.addressFromString()
@@ -32,6 +36,15 @@ let lpAssetIdOption = match factoryAddressOption {
   case _: Unit => unit
 }
 let lpAssetIdOrFail = lpAssetIdOption.valueOrErrorMessage(wrapErr("invalid lpAssetId"))
+
+let treasuryAddressOption = match factoryAddressOption {
+  case a: Address => match a.getString(keyTreasuryAddress()) {
+    case s: String => s.addressFromString()
+    case _: Unit => unit
+  }
+  case _: Unit => unit
+}
+let treasuryAddressOrFail = treasuryAddressOption.valueOrErrorMessage(wrapErr("invalid treasury address"))
 
 func onlyAddress(i: Invocation, address: Address) = {
   i.caller == address || throwErr("permission denied")
@@ -83,9 +96,28 @@ func claimWaves(userAddressBytes: ByteVector, epoch: Int) = {
   (nil, unit)
 }
 
+# payment in waves
 @Callable(i)
 func invest(userAddressBytes: ByteVector) = {
-  (nil, unit)
+  let userAddress = Address(userAddressBytes)
+  let currentPeriodOrFail =
+    factoryAddressOrFail.getInteger(keyCurrentPeriod()).valueOrErrorMessage("invalid period")
+  let currentPriceOrFail =
+    factoryAddressOrFail.getInteger(keyPriceForPeriod(currentPeriodOrFail)).valueOrErrorMessage("invalid price")
+  let payment = if (i.payments.size() == 1) then i.payments[0] else throwErr("invalid payments")
+  let paymentAssetId = if (payment.assetId == unit) then unit else throwErr("invalid payment asset")
+  let paymentAmount = if (payment.amount > 0) then payment.amount else throwErr("invalid payment amount")
+  let lpAssetAmount = if (currentPriceOrFail > 0) then fraction(paymentAmount, priceScale, currentPriceOrFail) else 0
+  
+  # TODO: increase invested amount
+  strict stateMutations = [
+    factoryAddressOrFail.invoke("integerEntry", ["invested__WAVES", 0], [])
+  ]
+
+  ([
+    ScriptTransfer(userAddress, lpAssetAmount, lpAssetIdOrFail),
+    ScriptTransfer(treasuryAddressOrFail, paymentAmount, paymentAssetId)
+  ], lpAssetAmount)
 }
 
 @Callable(i)

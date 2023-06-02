@@ -104,6 +104,7 @@ func binaryEntry(key: String, val: ByteVector) =
 func deleteEntry(key: String) =
   if (i.onlyCalculator()) then ([DeleteEntry(key)], key) else ([], unit)
 
+
 @Callable(i)
 func emit(amount: Int) = {
   strict checkCaller = i.onlyCalculator()
