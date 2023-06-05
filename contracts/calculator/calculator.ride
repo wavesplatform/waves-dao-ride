@@ -129,9 +129,28 @@ func finalize(
   ]
   let currentPeriodOrFail =
     factoryAddressOrFail.getInteger(keyCurrentPeriod()).valueOrErrorMessage("invalid period")
-  # update current period
-  # update price for current period
-  (nil, unit)
+  let newPeriod = currentPeriodOrFail + 1
+  # TODO: calculate new price
+  let newPrice = SCALE8
+  
+  # TODO: burn total withdrawal amount
+  let lpAssetAmountToBurn = 0
+
+  let factoryActions = [
+    # update period
+    factoryAddressOrFail.invoke("integerEntry", [keyCurrentPeriod(), newPeriod], []),
+    # update price
+    factoryAddressOrFail.invoke("integerEntry", [keyPriceForPeriod(newPeriod), newPrice], []),
+    factoryAddressOrFail.invoke("burn", [lpAssetAmountToBurn], [])
+    # factoryAddressOrFail.invoke("transferAsset", [
+    #   userAddressBytes, lpAssetAmount, lpAssetIdOrFail
+    # ], []),
+    # factoryAddressOrFail.invoke("transferWaves", [
+    #   treasuryAddressOrFail.bytes, paymentAmount
+    # ], [AttachedPayment(unit, paymentAmount)])
+  ]
+
+  (nil, factoryActions)
 }
 
 # payment in waves
