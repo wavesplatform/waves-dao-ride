@@ -119,12 +119,14 @@ func finalize(
   pwrManagersBonus: Int, # 0..1×10⁸
   treasuryVolumeDiffAllocationCoef: Int # -1..1×10⁸
 ) = {
+  strict checkCaller = i.onlyFactory()
   (nil, unit)
 }
 
 # payment in waves
 @Callable(i)
 func invest(userAddressBytes: ByteVector) = {
+  strict checkCaller = i.onlyFactory()
   let userAddress = Address(userAddressBytes)
   let currentPeriodOrFail =
     factoryAddressOrFail.getInteger(keyCurrentPeriod()).valueOrErrorMessage("invalid period")
@@ -153,6 +155,7 @@ func invest(userAddressBytes: ByteVector) = {
 
 @Callable(i)
 func withdraw(userAddressBytes: ByteVector) = {
+  strict checkCaller = i.onlyFactory()
   let userAddress = Address(userAddressBytes)
   let currentPeriodOrFail =
     factoryAddressOrFail.getInteger(keyCurrentPeriod()).valueOrErrorMessage("invalid period")
@@ -175,6 +178,7 @@ func withdraw(userAddressBytes: ByteVector) = {
 
 @Callable(i)
 func cancelWithdraw(userAddressBytes: ByteVector, txId: ByteVector) = {
+  strict checkCaller = i.onlyFactory()
   let userAddress = Address(userAddressBytes)
   let withdrawalRequestOption = factoryAddressOrFail
     .getString(keyWithdrawalRequest(userAddress, txId))
@@ -197,6 +201,7 @@ func cancelWithdraw(userAddressBytes: ByteVector, txId: ByteVector) = {
 
 @Callable(i)
 func claimWaves(userAddressBytes: ByteVector, txId: ByteVector) = {
+  strict checkCaller = i.onlyFactory()
   let userAddress = Address(userAddressBytes)
   let currentPeriodOrFail =
     factoryAddressOrFail.getInteger(keyCurrentPeriod()).valueOrErrorMessage("invalid period")
