@@ -20,6 +20,7 @@ func keyChildAddress() = "%s__child" # 3PEwRcYNAUtoFvKpBhKoiwajnZfdoDR6h4h
 func keyBlockRewardDistributionStartHeight() = "%s__blockRewardDistributionStartHeight"
 # 0.005 waves to compensate the cost of the transaction
 func keyBlockProcessingReward() = "%s__blockProcessingReward"
+func keyLastProcessedBlock() = "%s__lastProcessedBlock"
 
 func keyLpAssetId() = "%s__lpAssetId"
 
