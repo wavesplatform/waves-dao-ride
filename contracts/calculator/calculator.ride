@@ -4,7 +4,7 @@
 
 let SEP = "__"
 let CONTRACT_NAME = "calculator.ride"
-let PRICE_SCALE = 100_000_000
+let SCALE8 = 100_000_000
 let PENDING = "PENDING"
 let FINISHED = "FINISHED"
 
@@ -119,7 +119,18 @@ func finalize(
   pwrManagersBonus: Int, # 0..1×10⁸
   treasuryVolumeDiffAllocationCoef: Int # -1..1×10⁸
 ) = {
-  strict checkCaller = i.onlyFactory()
+  strict checks = [
+    i.originCaller == factoryAddressOrFail || throwErr("permission denied"),
+    newTreasuryVolumeInWaves >= 0 || throwErr("invalid new treasury volume"),
+    xtnPrice >= 0 || throwErr("invalid XTN price"),
+    pwrManagersBonus >= 0 && pwrManagersBonus <= SCALE8 || throwErr("invalid PWR managers bonus"),
+    treasuryVolumeDiffAllocationCoef >= -SCALE8 && treasuryVolumeDiffAllocationCoef <= SCALE8
+      || throwErr("invalid treasury volume diff allocation coefficient")
+  ]
+  let currentPeriodOrFail =
+    factoryAddressOrFail.getInteger(keyCurrentPeriod()).valueOrErrorMessage("invalid period")
+  # update current period
+  # update price for current period
   (nil, unit)
 }
 
@@ -136,7 +147,7 @@ func invest(userAddressBytes: ByteVector) = {
   let paymentAmount = if (payment.assetId == unit && payment.amount > 0) then {
     payment.amount
   } else throwErr("invalid payment amount")
-  let lpAssetAmount = if (currentPriceOrFail > 0) then fraction(paymentAmount, PRICE_SCALE, currentPriceOrFail) else 0
+  let lpAssetAmount = if (currentPriceOrFail > 0) then fraction(paymentAmount, SCALE8, currentPriceOrFail) else 0
   
   let factoryActions = [
     # TODO: increase invested amount
@@ -216,7 +227,7 @@ func claimWaves(userAddressBytes: ByteVector, txId: ByteVector) = {
   } else {
     let currentPriceOrFail =
       factoryAddressOrFail.getInteger(keyPriceForPeriod(currentPeriodOrFail)).valueOrErrorMessage("invalid price")
-    let amount = if (currentPriceOrFail > 0) then fraction(lpAssetAmount, currentPriceOrFail, PRICE_SCALE) else 0
+    let amount = if (currentPriceOrFail > 0) then fraction(lpAssetAmount, currentPriceOrFail, SCALE8) else 0
     let factoryActions = [
       factoryAddressOrFail.invoke("stringEntry", [
         keyWithdrawalRequest(userAddress, txId),
