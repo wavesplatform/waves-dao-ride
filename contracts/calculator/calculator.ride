@@ -259,6 +259,13 @@ func claimWaves(userAddressBytes: ByteVector, txId: ByteVector) = {
   }
 }
 
+@Callable(i)
+func processBlocks(userAddressBytes: ByteVector) = {
+  strict checkCaller = i.onlyFactory()
+  
+  (nil, unit)
+}
+
 @Verifier(tx)
 func verify() = {
   false
