@@ -23,9 +23,8 @@ func keyAvailable(userAddress: Address) = ["%s%s", "available", userAddress.toSt
 func keyClaimed(userAddress: Address) = ["%s%s", "claimed", userAddress.toString()].makeString(SEP)
 func keyCurrentPeriod() = ["%s", "currentPeriod"].makeString(SEP)
 func keyPriceForPeriod(period: Int) = ["%s%d", "price", period.toString()].makeString(SEP)
-func keyBlockRewardDistributionStartHeight() = "%s__blockRewardDistributionStartHeight"
 func keyBlockProcessingReward() = "%s__blockProcessingReward"
-func keyLastProcessedBlock() = "%s__lastProcessedBlock"
+func keyNextBlockToProcess() = "%s__nextBlockToProcess"
 func keyWithdrawalRequest(userAddress: Address, txId: ByteVector) =
   ["%s%s%s", "withdrawal", userAddress.toString(), txId.toBase58String()].makeString(SEP)
 func valueWithdrawalRequest(status: String, lpAssetAmount: Int, targetPeriod: Int, claimTxId: ByteVector|Unit) = {
@@ -271,45 +270,37 @@ func processBlocks(userAddressBytes: ByteVector) = {
     factoryAddressOrFail.getInteger(keyCurrentPeriod()).valueOrErrorMessage(wrapErr("invalid period"))
   let currentPriceOrFail =
     factoryAddressOrFail.getInteger(keyPriceForPeriod(currentPeriodOrFail)).valueOrErrorMessage(wrapErr("invalid price"))
-  let blockDistributionStartHeightOrFail = factoryAddressOrFail
-    .getInteger(keyBlockRewardDistributionStartHeight())
-    .valueOrErrorMessage(wrapErr("invalid block distribution start height"))
-  let lastProcessedBlock = factoryAddressOrFail
-    .getInteger(keyLastProcessedBlock())
-    .valueOrElse(blockDistributionStartHeightOrFail - 1)
-  let targetBlock = if (height > lastProcessedBlock)
-    then lastProcessedBlock + 1
-    else throwErr(wrapErr("invalid height"))
-  let targetBlockInfo = blockInfoByHeight(targetBlock)
-  let treasuryRewardOption = rewardForOption(targetBlockInfo.rewards, treasuryAddressOrFail)
+  let nextBlockToProcess = factoryAddressOrFail
+    .getInteger(keyNextBlockToProcess())
+    .valueOrErrorMessage(wrapErr("invalid next block to process"))
+  let targetBlockInfo = if (height >= nextBlockToProcess)
+    then blockInfoByHeight(nextBlockToProcess).valueOrErrorMessage(wrapErr("invalid block info"))
+    else throwErr(wrapErr("invalid target block"))
+  let treasuryRewardOrFail = rewardForOption(targetBlockInfo.rewards, treasuryAddressOrFail)
+    .valueOrErrorMessage(wrapErr("invalid treasury reward"))
 
   # TODO: do not process blocks not in current period
-  match treasuryRewardOption {
-    case reward: Int => {
-      let blockProcessingRewardOrFail = factoryAddressOrFail
-        .getInteger(keyBlockProcessingReward())
-        .valueOrErrorMessage(wrapErr("invalid block processing reward"))
-      let available = factoryAddressOrFail.getInteger(keyAvailable(userAddress)).valueOrElse(0)
-      let lpAssetAmount = if (currentPriceOrFail > 0)
-        then fraction(reward - blockProcessingRewardOrFail, SCALE8, currentPriceOrFail)
-        else 0
-      let factoryActions = [
-        factoryAddressOrFail.invoke("integerEntry", [
-          keyLastProcessedBlock(),
-          targetBlock
-        ], []),
-        factoryAddressOrFail.invoke("integerEntry", [
-          keyAvailable(userAddress),
-          available
-        ], []),
-        factoryAddressOrFail.invoke("transferWaves", [
-          userAddressBytes, blockProcessingRewardOrFail
-        ], [])
-      ]
-      (nil, factoryActions)
-    }
-    case _: Unit => throwErr(wrapErr("invalid treasury reward"))
-  }
+  let blockProcessingRewardOrFail = factoryAddressOrFail
+    .getInteger(keyBlockProcessingReward())
+    .valueOrErrorMessage(wrapErr("invalid block processing reward"))
+  let available = factoryAddressOrFail.getInteger(keyAvailable(userAddress)).valueOrElse(0)
+  let lpAssetAmount = if (currentPriceOrFail > 0)
+    then fraction(treasuryRewardOrFail - blockProcessingRewardOrFail, SCALE8, currentPriceOrFail)
+    else 0
+  let factoryActions = [
+    factoryAddressOrFail.invoke("integerEntry", [
+      keyNextBlockToProcess(),
+      nextBlockToProcess + 1
+    ], []),
+    factoryAddressOrFail.invoke("integerEntry", [
+      keyAvailable(userAddress),
+      available
+    ], []),
+    factoryAddressOrFail.invoke("transferWaves", [
+      userAddressBytes, blockProcessingRewardOrFail
+    ], [])
+  ]
+  (nil, factoryActions)
 }
 
 @Verifier(tx)
