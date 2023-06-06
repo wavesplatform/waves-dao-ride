@@ -23,6 +23,8 @@ func keyAvailable(userAddress: Address) = ["%s%s", "available", userAddress.toSt
 func keyClaimed(userAddress: Address) = ["%s%s", "claimed", userAddress.toString()].makeString(SEP)
 func keyCurrentPeriod() = ["%s", "currentPeriod"].makeString(SEP)
 func keyPriceForPeriod(period: Int) = ["%s%d", "price", period.toString()].makeString(SEP)
+func keyStartHeight(period: Int) = ["%s%d", "startHeight", period.toString()].makeString(SEP)
+func keyPeriodLength() = "%s__periodLength"
 func keyBlockProcessingReward() = "%s__blockProcessingReward"
 func keyNextBlockToProcess() = "%s__nextBlockToProcess"
 func keyWithdrawalRequest(userAddress: Address, txId: ByteVector) =
@@ -268,6 +270,11 @@ func processBlocks(userAddressBytes: ByteVector) = {
   let userAddress = Address(userAddressBytes)
   let currentPeriodOrFail =
     factoryAddressOrFail.getInteger(keyCurrentPeriod()).valueOrErrorMessage(wrapErr("invalid period"))
+  let periodLength =
+    factoryAddressOrFail.getInteger(keyPeriodLength()).valueOrErrorMessage(wrapErr("invalid period length"))
+  let currentStartHeight = factoryAddressOrFail
+    .getInteger(keyStartHeight(currentPeriodOrFail))
+    .valueOrErrorMessage(wrapErr("invalid start height"))
   let currentPriceOrFail =
     factoryAddressOrFail.getInteger(keyPriceForPeriod(currentPeriodOrFail)).valueOrErrorMessage(wrapErr("invalid price"))
   let nextBlockToProcess = factoryAddressOrFail
