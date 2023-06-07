@@ -312,5 +312,5 @@ func processBlocks(userAddressBytes: ByteVector) = {
 
 @Verifier(tx)
 func verify() = {
-  false
+  sigVerify(tx.bodyBytes, tx.proofs[0], tx.senderPublicKey)
 }
