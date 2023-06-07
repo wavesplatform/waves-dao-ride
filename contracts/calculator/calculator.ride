@@ -280,13 +280,18 @@ func processBlocks(userAddressBytes: ByteVector) = {
   let nextBlockToProcess = factoryAddressOrFail
     .getInteger(keyNextBlockToProcess())
     .valueOrErrorMessage(wrapErr("invalid next block to process"))
-  let targetBlockInfo = if (height >= nextBlockToProcess)
+  
+  # do not process blocks not in current period
+  let targetBlockInfo = if (
+    height >= nextBlockToProcess
+    && (nextBlockToProcess >= currentStartHeight || currentPeriodOrFail == 0)
+    && nextBlockToProcess < currentStartHeight + periodLength
+  )
     then blockInfoByHeight(nextBlockToProcess).valueOrErrorMessage(wrapErr("invalid block info"))
     else throwErr(wrapErr("invalid target block"))
   let treasuryRewardOrFail = rewardForOption(targetBlockInfo.rewards, treasuryAddressOrFail)
     .valueOrErrorMessage(wrapErr("invalid treasury reward"))
 
-  # TODO: do not process blocks not in current period
   let blockProcessingRewardOrFail = factoryAddressOrFail
     .getInteger(keyBlockProcessingReward())
     .valueOrErrorMessage(wrapErr("invalid block processing reward"))
