@@ -1,4 +1,5 @@
-import { setScriptFromFile } from '../utils/api.js'
+import { chainId, setScriptFromFile } from '../utils/api.js'
+import wc from '@waves/ts-lib-crypto'
 import inquirer from 'inquirer'
 import inquirerFileTreeSelection from 'inquirer-file-tree-selection-prompt'
 
@@ -20,4 +21,15 @@ const { rideFilePath, privateKey } = await inquirer.prompt([
   }
 ])
 
-await setScriptFromFile(rideFilePath, { privateKey })
+const publicKey = wc.publicKey({ privateKey })
+const targetAddress = wc.address({ publicKey }, chainId)
+
+const { confirm } = await inquirer.prompt([
+  {
+    type: 'confirm',
+    name: 'confirm',
+    message: `Set script from ${rideFilePath} for ${targetAddress}?`
+  }
+])
+
+if (confirm) await setScriptFromFile(rideFilePath, { privateKey })
