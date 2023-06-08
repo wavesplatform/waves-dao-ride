@@ -133,7 +133,8 @@ func transferWaves(recepientBytes: ByteVector, amount: Int) =
 # finalize period
 @Callable(i)
 func finalize() =
-  (nil, calculatorAddressOrFail.invoke("finalize", [i.caller.bytes], i.payments))
+  throwErr("not implemented yet")
+  # (nil, calculatorAddressOrFail.invoke("finalize", [i.caller.bytes], i.payments))
 
 @Callable(i)
 func claimLP() =
