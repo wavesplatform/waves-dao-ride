@@ -20,7 +20,6 @@ func keyChildAddress() = "%s__child" # 3PEwRcYNAUtoFvKpBhKoiwajnZfdoDR6h4h
 func keyBlockProcessingReward() = "%s__blockProcessingReward"
 # feature 19 activation height should be set initially
 func keyNextBlockToProcess() = "%s__nextBlockToProcess"
-func keyBlocksProcessingBatchSize() = "%s__blocksProcessingBatchSize"
 
 func keyLpAssetId() = "%s__lpAssetId"
 

@@ -27,7 +27,7 @@ func keyStartHeight(period: Int) = ["%s%d", "startHeight", period.toString()].ma
 func keyPeriodLength() = "%s__periodLength"
 func keyBlockProcessingReward() = "%s__blockProcessingReward"
 func keyNextBlockToProcess() = "%s__nextBlockToProcess"
-func keyBlocksProcessingBatchSize() = "%s__blocksProcessingBatchSize"
+func keyBlockProcessed(height: Int) = ["%s%d", "blockProcessed", height.toString()].makeString(SEP)
 func keyWithdrawalRequest(userAddress: Address, txId: ByteVector) =
   ["%s%s%s", "withdrawal", userAddress.toString(), txId.toBase58String()].makeString(SEP)
 func valueWithdrawalRequest(status: String, lpAssetAmount: Int, targetPeriod: Int, claimTxId: ByteVector|Unit) = {
@@ -270,9 +270,6 @@ func claimWaves(userAddressBytes: ByteVector, txId: ByteVector) = {
 func processBlocks(userAddressBytes: ByteVector) = {
   strict checkCaller = i.onlyFactory()
   let userAddress = Address(userAddressBytes)
-  let blocksProcessingBatchSize =
-    factoryAddressOrFail.getInteger(keyBlocksProcessingBatchSize())
-    .valueOrErrorMessage(wrapErr("invalid batch size"))
   let currentPeriodOrFail =
     factoryAddressOrFail.getInteger(keyCurrentPeriod())
     .valueOrErrorMessage(wrapErr("invalid period"))
@@ -288,40 +285,74 @@ func processBlocks(userAddressBytes: ByteVector) = {
   let nextBlockToProcess = factoryAddressOrFail
     .getInteger(keyNextBlockToProcess())
     .valueOrErrorMessage(wrapErr("invalid next block to process"))
-  
+
+  let periodEndHeight = currentStartHeight + periodLength - 1
+  let blocksProcessingBatchSizeMax = 5
+
   # do not process blocks not in current period
-  let targetBlockInfo = if (
+  let blocksProcessingBatchSize = if (
     height >= nextBlockToProcess
     && (nextBlockToProcess >= currentStartHeight || currentPeriodOrFail == 0)
-    && nextBlockToProcess < currentStartHeight + periodLength
-  )
-    then blockInfoByHeight(nextBlockToProcess).valueOrErrorMessage(wrapErr("invalid block info"))
-    else throwErr(wrapErr("invalid target block"))
-  let treasuryRewardOrFail = rewardForOption(targetBlockInfo.rewards, treasuryAddressOrFail)
-    .valueOrErrorMessage(wrapErr("invalid treasury reward"))
-  let generator = targetBlockInfo.generator
+    && nextBlockToProcess <= periodEndHeight
+  ) then {
+    min([periodEndHeight - nextBlockToProcess + 1, blocksProcessingBatchSizeMax])
+  } else {
+    throwErr(wrapErr("invalid target block"))
+  }
 
-  let blockProcessingRewardOrFail = factoryAddressOrFail
+  let blockProcessingReward = factoryAddressOrFail
     .getInteger(keyBlockProcessingReward())
     .valueOrErrorMessage(wrapErr("invalid block processing reward"))
-  let available = factoryAddressOrFail.getInteger(keyAvailable(generator)).valueOrElse(0)
-  let lpAssetAmount = if (currentPriceOrFail > 0)
-    then fraction(treasuryRewardOrFail - blockProcessingRewardOrFail, SCALE8, currentPriceOrFail)
-    else 0
-  let factoryActions = [
+  let blockProcessingRewardByGenerator = blockProcessingReward / blocksProcessingBatchSize
+  let blockProcessingRewardByGeneratorRemainder = blockProcessingReward - blockProcessingRewardByGenerator * blocksProcessingBatchSize
+  
+  func map(acc: Int, inc: Int) = {
+    if (inc >= blocksProcessingBatchSize) then {
+      acc
+    } else {
+      let targetBlockHeight = nextBlockToProcess + inc
+      let targetBlockInfo = blockInfoByHeight(targetBlockHeight).valueOrErrorMessage(wrapErr("invalid block info"))
+      let treasuryRewardOrFail = rewardForOption(targetBlockInfo.rewards, treasuryAddressOrFail)
+        .valueOrErrorMessage(wrapErr("invalid treasury reward for height " + targetBlockHeight.toString()))
+      let generator = targetBlockInfo.generator
+      let available = factoryAddressOrFail.getInteger(keyAvailable(generator)).valueOrElse(0)
+      let lpAssetAmount = if (currentPriceOrFail > 0)
+        then fraction(treasuryRewardOrFail - blockProcessingRewardByGenerator, SCALE8, currentPriceOrFail)
+        else 0
+      
+      strict factoryActionsSingle = [
+        factoryAddressOrFail.invoke("integerEntry", [
+          keyBlockProcessed(targetBlockHeight),
+          lpAssetAmount
+        ], []),
+        factoryAddressOrFail.invoke("integerEntry", [
+          keyAvailable(generator),
+          available + lpAssetAmount
+        ], [])
+      ]
+      let callerReward = if (inc == blocksProcessingBatchSize - 1) then {
+        blockProcessingRewardByGenerator + blockProcessingRewardByGeneratorRemainder
+      } else {
+        blockProcessingRewardByGenerator
+      }
+
+      acc + callerReward
+    }
+  }
+
+  strict callerReward = FOLD<5>([0, 1, 2, 3, 4], 0, map)
+
+  strict actions = [
+    factoryAddressOrFail.invoke("transferWaves", [
+      userAddressBytes, callerReward
+    ], []),
     factoryAddressOrFail.invoke("integerEntry", [
       keyNextBlockToProcess(),
-      nextBlockToProcess + 1
-    ], []),
-    factoryAddressOrFail.invoke("integerEntry", [
-      keyAvailable(generator),
-      available + lpAssetAmount
-    ], []),
-    factoryAddressOrFail.invoke("transferWaves", [
-      userAddressBytes, blockProcessingRewardOrFail
+      nextBlockToProcess + blocksProcessingBatchSize
     ], [])
   ]
-  (nil, factoryActions)
+
+  (nil, unit)
 }
 
 @Verifier(tx)
