@@ -111,7 +111,7 @@ func claimLP(userAddressBytes: ByteVector) = {
       keyClaimed(userAddress),
       claimed + available
     ], [])
-  ] else []
+  ] else throwErr("nothing to claim")
 
   (nil, factoryActions)
 }
