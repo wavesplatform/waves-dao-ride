@@ -40,5 +40,5 @@ export const setScriptFromFile = async (
     chainId,
     additionalFee: extraFee
   }, account)
-  await broadcastAndWait(ssTx)
+  return broadcastAndWait(ssTx)
 }

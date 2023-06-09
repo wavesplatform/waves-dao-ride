@@ -32,4 +32,7 @@ const { confirm } = await inquirer.prompt([
   }
 ])
 
-if (confirm) await setScriptFromFile(rideFilePath, { privateKey })
+if (confirm) {
+  const { id } = await setScriptFromFile(rideFilePath, { privateKey })
+  console.log(id)
+}
