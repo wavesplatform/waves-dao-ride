@@ -27,6 +27,7 @@ func keyStartHeight(period: Int) = ["%s%d", "startHeight", period.toString()].ma
 func keyPeriodLength() = "%s__periodLength"
 func keyBlockProcessingReward() = "%s__blockProcessingReward"
 func keyNextBlockToProcess() = "%s__nextBlockToProcess"
+func keyBlocksProcessingBatchSize() = "%s__blocksProcessingBatchSize"
 func keyWithdrawalRequest(userAddress: Address, txId: ByteVector) =
   ["%s%s%s", "withdrawal", userAddress.toString(), txId.toBase58String()].makeString(SEP)
 func valueWithdrawalRequest(status: String, lpAssetAmount: Int, targetPeriod: Int, claimTxId: ByteVector|Unit) = {
@@ -269,15 +270,21 @@ func claimWaves(userAddressBytes: ByteVector, txId: ByteVector) = {
 func processBlocks(userAddressBytes: ByteVector) = {
   strict checkCaller = i.onlyFactory()
   let userAddress = Address(userAddressBytes)
+  let blocksProcessingBatchSize =
+    factoryAddressOrFail.getInteger(keyBlocksProcessingBatchSize())
+    .valueOrErrorMessage(wrapErr("invalid batch size"))
   let currentPeriodOrFail =
-    factoryAddressOrFail.getInteger(keyCurrentPeriod()).valueOrErrorMessage(wrapErr("invalid period"))
+    factoryAddressOrFail.getInteger(keyCurrentPeriod())
+    .valueOrErrorMessage(wrapErr("invalid period"))
   let periodLength =
-    factoryAddressOrFail.getInteger(keyPeriodLength()).valueOrErrorMessage(wrapErr("invalid period length"))
+    factoryAddressOrFail.getInteger(keyPeriodLength())
+    .valueOrErrorMessage(wrapErr("invalid period length"))
   let currentStartHeight = factoryAddressOrFail
     .getInteger(keyStartHeight(currentPeriodOrFail))
     .valueOrErrorMessage(wrapErr("invalid start height"))
   let currentPriceOrFail =
-    factoryAddressOrFail.getInteger(keyPriceForPeriod(currentPeriodOrFail)).valueOrErrorMessage(wrapErr("invalid price"))
+    factoryAddressOrFail.getInteger(keyPriceForPeriod(currentPeriodOrFail))
+    .valueOrErrorMessage(wrapErr("invalid price"))
   let nextBlockToProcess = factoryAddressOrFail
     .getInteger(keyNextBlockToProcess())
     .valueOrErrorMessage(wrapErr("invalid next block to process"))
