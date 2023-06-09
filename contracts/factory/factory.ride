@@ -134,31 +134,31 @@ func transferWaves(recepientBytes: ByteVector, amount: Int) =
 @Callable(i)
 func finalize() =
   throwErr("not implemented yet")
-  # (nil, calculatorAddressOrFail.invoke("finalize", [i.caller.bytes], i.payments))
+  # (nil, calculatorAddressOrFail.reentrantInvoke("finalize", [i.caller.bytes], i.payments))
 
 @Callable(i)
 func claimLP() =
-  (nil, calculatorAddressOrFail.invoke("claimLP", [i.caller.bytes], i.payments))
+  (nil, calculatorAddressOrFail.reentrantInvoke("claimLP", [i.caller.bytes], i.payments))
 
 @Callable(i)
 func claimWaves(txIdStr: String) =
-  (nil, calculatorAddressOrFail.invoke("claimWaves", [i.caller.bytes, txIdStr.fromBase58String()], i.payments))
+  (nil, calculatorAddressOrFail.reentrantInvoke("claimWaves", [i.caller.bytes, txIdStr.fromBase58String()], i.payments))
 
 @Callable(i)
 func invest() =
-  (nil, calculatorAddressOrFail.invoke("invest", [i.caller.bytes], i.payments))
+  (nil, calculatorAddressOrFail.reentrantInvoke("invest", [i.caller.bytes], i.payments))
 
 @Callable(i)
 func withdraw() =
-  (nil, calculatorAddressOrFail.invoke("withdraw", [i.caller.bytes], i.payments))
+  (nil, calculatorAddressOrFail.reentrantInvoke("withdraw", [i.caller.bytes], i.payments))
 
 @Callable(i)
 func cancelWithdraw(txIdStr: String) =
-  (nil, calculatorAddressOrFail.invoke("cancelWithdraw", [i.caller.bytes, txIdStr.fromBase58String()], i.payments))
+  (nil, calculatorAddressOrFail.reentrantInvoke("cancelWithdraw", [i.caller.bytes, txIdStr.fromBase58String()], i.payments))
 
 # process miners blocks
 @Callable(i)
-func processBlocks() = (nil, calculatorAddressOrFail.invoke("processBlocks", [i.caller.bytes], i.payments))
+func processBlocks() = (nil, calculatorAddressOrFail.reentrantInvoke("processBlocks", [i.caller.bytes], i.payments))
 
 @Verifier(tx)
 func verify() = {
