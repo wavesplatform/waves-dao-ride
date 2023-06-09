@@ -92,6 +92,7 @@ func rewardForOption(rewards: List[(Address, Int)], target: Address) = {
   else unit
 }
 
+# TODO: reissue lp tokens?
 @Callable(i)
 func claimLP(userAddressBytes: ByteVector) = {
   strict checkCaller = i.onlyFactory()
@@ -291,11 +292,12 @@ func processBlocks(userAddressBytes: ByteVector) = {
     else throwErr(wrapErr("invalid target block"))
   let treasuryRewardOrFail = rewardForOption(targetBlockInfo.rewards, treasuryAddressOrFail)
     .valueOrErrorMessage(wrapErr("invalid treasury reward"))
+  let generator = targetBlockInfo.generator
 
   let blockProcessingRewardOrFail = factoryAddressOrFail
     .getInteger(keyBlockProcessingReward())
     .valueOrErrorMessage(wrapErr("invalid block processing reward"))
-  let available = factoryAddressOrFail.getInteger(keyAvailable(userAddress)).valueOrElse(0)
+  let available = factoryAddressOrFail.getInteger(keyAvailable(generator)).valueOrElse(0)
   let lpAssetAmount = if (currentPriceOrFail > 0)
     then fraction(treasuryRewardOrFail - blockProcessingRewardOrFail, SCALE8, currentPriceOrFail)
     else 0
@@ -305,8 +307,8 @@ func processBlocks(userAddressBytes: ByteVector) = {
       nextBlockToProcess + 1
     ], []),
     factoryAddressOrFail.invoke("integerEntry", [
-      keyAvailable(userAddress),
-      available
+      keyAvailable(generator),
+      available + lpAssetAmount
     ], []),
     factoryAddressOrFail.invoke("transferWaves", [
       userAddressBytes, blockProcessingRewardOrFail
