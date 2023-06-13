@@ -93,7 +93,6 @@ func rewardForOption(rewards: List[(Address, Int)], target: Address) = {
   else unit
 }
 
-# TODO: reissue lp tokens?
 @Callable(i)
 func claimLP(userAddressBytes: ByteVector) = {
   strict checkCaller = i.onlyFactory()
@@ -316,15 +315,16 @@ func processBlocks(userAddressBytes: ByteVector) = {
         .valueOrErrorMessage(wrapErr("invalid treasury reward for height " + targetBlockHeight.toString()))
       let generator = targetBlockInfo.generator
       let available = factoryAddressOrFail.getInteger(keyAvailable(generator)).valueOrElse(0)
-      let lpAssetAmount = if (currentPriceOrFail > 0)
-        then fraction(treasuryRewardOrFail - blockProcessingRewardByGenerator, SCALE8, currentPriceOrFail)
-        else 0
 
       let callerReward = if (inc == blocksProcessingBatchSize - 1) then {
         blockProcessingRewardByGenerator + blockProcessingRewardByGeneratorRemainder
       } else {
         blockProcessingRewardByGenerator
       }
+
+      let lpAssetAmount = if (currentPriceOrFail > 0)
+        then fraction(treasuryRewardOrFail - callerReward, SCALE8, currentPriceOrFail)
+        else 0
       
       strict factoryActionsSingle = [
         factoryAddressOrFail.invoke("stringEntry", [
@@ -343,7 +343,7 @@ func processBlocks(userAddressBytes: ByteVector) = {
         ], [])
       ]
 
-      acc + callerReward
+      acc + lpAssetAmount
     }
   }
 
@@ -353,11 +353,14 @@ func processBlocks(userAddressBytes: ByteVector) = {
     20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
     30, 31, 32, 33, 34, 35, 36, 37, 38, 39
   ]
-  strict callerReward = FOLD<40>(list, 0, map)
+  strict lpAssetAmountTotal = FOLD<40>(list, 0, map)
 
   strict actions = [
     factoryAddressOrFail.invoke("transferWaves", [
-      userAddressBytes, callerReward
+      userAddressBytes, blockProcessingReward
+    ], []),
+    factoryAddressOrFail.invoke("reissue", [
+      lpAssetAmountTotal
     ], []),
     factoryAddressOrFail.invoke("integerEntry", [
       keyNextBlockToProcess(),
