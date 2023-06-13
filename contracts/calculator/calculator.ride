@@ -231,7 +231,6 @@ func withdraw(userAddressBytes: ByteVector) = {
   ], factoryActions)
 }
 
-# TODO: decrease total withdrawal amount
 @Callable(i)
 func cancelWithdraw(userAddressBytes: ByteVector, txId: ByteVector) = {
   strict checkCaller = i.onlyFactory()
@@ -241,7 +240,16 @@ func cancelWithdraw(userAddressBytes: ByteVector, txId: ByteVector) = {
     .valueOrErrorMessage(wrapErr("invalid withdrawal request"))
   let (status, lpAssetAmount, targetPeriod, claimTxId) = parseWithdrawalRequestValueOrFail(withdrawalRequestOption)
   if (status == PENDING) then {
+    let withdrawal = factoryAddressOrFail.getInteger(keyWithdrawal())
+      .valueOrErrorMessage(wrapErr("invalid total withdrawal amount"))
     strict factoryActions = [
+      # decrease total withdrawal amount
+      factoryAddressOrFail.invoke("integerEntry", [
+        keyWithdrawal(),
+        if (withdrawal >= lpAssetAmount)
+          then withdrawal - lpAssetAmount
+          else throwErr("invalid withdrawal amount")
+      ], []),
       factoryAddressOrFail.invoke("deleteEntry", [
         keyWithdrawalRequest(userAddress, txId)
       ], []),
