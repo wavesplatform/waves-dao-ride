@@ -7,6 +7,7 @@ let CONTRACT_NAME = "calculator.ride"
 let SCALE8 = 100_000_000
 let PENDING = "PENDING"
 let FINISHED = "FINISHED"
+let WAVES = "WAVES"
 
 func wrapErr(s: String) = {
   CONTRACT_NAME + ": " + s
@@ -16,9 +17,17 @@ func throwErr(s: String) = {
   throw(wrapErr(s))
 }
 
+func assetIdToString(assetId: ByteVector|Unit) = {
+  match assetId {
+    case b: ByteVector => b.toBase58String()
+    case _: Unit => WAVES
+  }
+}
+
 func keyFactoryAddress() = ["%s", "factory"].makeString(SEP)
 func keyLpAssetId() = ["%s", "lpAssetId"].makeString(SEP)
 func keyTreasuryAddress() = ["%s", "treasury"].makeString(SEP)
+func keyInvested(assetId: ByteVector|Unit) = ["%s%s", "invested", assetIdToString(assetId)].makeString(SEP)
 func keyAvailable(userAddress: Address) = ["%s%s", "available", userAddress.toString()].makeString(SEP)
 func keyClaimed(userAddress: Address) = ["%s%s", "claimed", userAddress.toString()].makeString(SEP)
 func keyCurrentPeriod() = ["%s", "currentPeriod"].makeString(SEP)
@@ -173,10 +182,13 @@ func invest(userAddressBytes: ByteVector) = {
     payment.amount
   } else throwErr("invalid payment amount")
   let lpAssetAmount = if (currentPriceOrFail > 0) then fraction(paymentAmount, SCALE8, currentPriceOrFail) else 0
+  let invested = factoryAddressOrFail.getInteger(keyInvested(unit)).valueOrElse(0)
   
   let factoryActions = [
-    # TODO: increase invested amount
-    factoryAddressOrFail.invoke("integerEntry", ["invested__WAVES", 0], []),
+    # increase invested amount
+    factoryAddressOrFail.invoke("integerEntry", [
+      keyInvested(unit), invested + paymentAmount
+    ], []),
     factoryAddressOrFail.invoke("reissue", [lpAssetAmount], []),
     factoryAddressOrFail.invoke("transferAsset", [
       userAddressBytes, lpAssetAmount, lpAssetIdOrFail
