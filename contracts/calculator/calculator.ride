@@ -37,6 +37,7 @@ func keyPeriodLength() = "%s__periodLength"
 func keyBlockProcessingReward() = "%s__blockProcessingReward"
 func keyNextBlockToProcess() = "%s__nextBlockToProcess"
 func keyBlockProcessed(height: Int) = ["%s%d", "blockProcessed", height.toString()].makeString(SEP)
+func keyWithdrawal() = "%s__withdrawal"
 func keyWithdrawalRequest(userAddress: Address, txId: ByteVector) =
   ["%s%s%s", "withdrawal", userAddress.toString(), txId.toBase58String()].makeString(SEP)
 func valueWithdrawalRequest(status: String, lpAssetAmount: Int, targetPeriod: Int, claimTxId: ByteVector|Unit) = {
@@ -201,6 +202,7 @@ func invest(userAddressBytes: ByteVector) = {
   (nil, factoryActions)
 }
 
+# payment in lp asset
 @Callable(i)
 func withdraw(userAddressBytes: ByteVector) = {
   strict checkCaller = i.onlyFactory()
@@ -210,9 +212,14 @@ func withdraw(userAddressBytes: ByteVector) = {
   let payment = if (i.payments.size() == 1) then i.payments[0] else throwErr(wrapErr("invalid payments"))
   let paymentAssetId = if (payment.assetId == lpAssetIdOrFail) then lpAssetIdOrFail else throwErr("invalid payment asset")
   let paymentAmount = if (payment.amount > 0) then payment.amount else throwErr("invalid payment amount")
+  let withdrawal = factoryAddressOrFail.getInteger(keyWithdrawal()).valueOrElse(0)
 
-  # TODO: increase total withdrawal amount
+  # increase total withdrawal amount
   strict factoryActions = [
+    factoryAddressOrFail.invoke("integerEntry", [
+      keyWithdrawal(),
+      withdrawal + paymentAmount
+    ], []),
     factoryAddressOrFail.invoke("stringEntry", [
       keyWithdrawalRequest(userAddress, i.transactionId),
       valueWithdrawalRequest(PENDING, paymentAmount, currentPeriodOrFail + 1, unit)
@@ -224,6 +231,7 @@ func withdraw(userAddressBytes: ByteVector) = {
   ], factoryActions)
 }
 
+# TODO: decrease total withdrawal amount
 @Callable(i)
 func cancelWithdraw(userAddressBytes: ByteVector, txId: ByteVector) = {
   strict checkCaller = i.onlyFactory()
