@@ -200,5 +200,6 @@
   "proofs": [],
   "fee": 300000,
   "type": 12,
-  "version": 2
+  "version": 2,
+  "chainId": 87
 }

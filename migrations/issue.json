@@ -1,0 +1,12 @@
+{
+  "senderPublicKey": "7iwk3fSEypQw8aS1jGbgX19wsMviMu9tAENmGtHir9He",
+  "quantity": 122581754945,
+  "fee": 100000000,
+  "name": "",
+  "description": "",
+  "type": 3,
+  "version": 2,
+  "reissuable": true,
+  "chainId": 87,
+  "proofs": []
+}
