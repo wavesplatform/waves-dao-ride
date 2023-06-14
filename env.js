@@ -6,7 +6,8 @@ const envs = {
   custom: {
     chainId: 'R',
     apiBase: 'http://localhost:6869',
-    baseSeed: 'waves private node seed with waves tokens'
+    baseSeed: 'waves private node seed with waves tokens',
+    daoSeed: 'waves private node seed dao address'
   }
 }
 
