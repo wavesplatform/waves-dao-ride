@@ -117,7 +117,7 @@ func claimLP(userAddressBytes: ByteVector) = {
       keyAvailable(userAddress),
       0
     ], []),
-    factoryAddressOrFail.invoke("stringEntry", [
+    factoryAddressOrFail.invoke("integerEntry", [
       keyClaimed(userAddress),
       claimed + available
     ], [])
