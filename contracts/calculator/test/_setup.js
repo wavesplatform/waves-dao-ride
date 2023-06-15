@@ -16,7 +16,14 @@ const nonceLength = 3
 const calculatorPath = format({ dir: 'contracts/calculator', base: 'calculator.ride' })
 const factoryMockPath = format({ dir: 'contracts/factory', base: 'factory.ride' })
 
-export const setup = async () => {
+export const setup = async ({
+  periodLength = 2,
+  blockProcessingReward = 500000,
+  nextBlockToProcess = 2,
+  currentPeriod = 0,
+  price = 100000000,
+  period = 0
+} = {}) => {
   const nonce = wc.random(nonceLength, 'Buffer').toString('hex')
   const names = [
     'factory',
@@ -27,6 +34,13 @@ export const setup = async () => {
   const accounts = Object.fromEntries(names.map((item) => {
     const seed = `${item}#${nonce}`
     return [item, { seed, address: wc.address(seed, chainId), publicKey: wc.publicKey(seed) }]
+  }))
+  const accountsInfo = Object.entries(accounts)
+    .map(([name, { address }]) => [name, address])
+  console.log(table(accountsInfo, {
+    border: getBorderCharacters('norc'),
+    drawHorizontalLine: (index, size) => index === 0 || index === 1 || index === size,
+    header: { content: `pid: ${process.pid}, nonce: ${nonce}` }
   }))
   const amount = 100e8
   const massTransferTx = massTransfer({
@@ -53,11 +67,7 @@ export const setup = async () => {
   await broadcastAndWait(data({
     additionalFee: 4e5,
     data: [
-      {
-        key: '%s__factory',
-        type: 'string',
-        value: accounts.factory.address
-      }
+      { key: '%s__factory', type: 'string', value: accounts.factory.address }
     ],
     chainId
   }, accounts.calculator.seed))
@@ -65,21 +75,15 @@ export const setup = async () => {
   await broadcastAndWait(data({
     additionalFee: 4e5,
     data: [
-      {
-        key: '%s__calculator',
-        type: 'string',
-        value: accounts.calculator.address
-      },
-      {
-        key: '%s__treasury',
-        type: 'string',
-        value: daoAddress
-      },
-      {
-        key: '%s__lpAssetId',
-        type: 'string',
-        value: lpAssetId
-      }
+      { key: '%s__calculator', type: 'string', value: accounts.calculator.address },
+      { key: '%s__treasury', type: 'string', value: daoAddress },
+      { key: '%s__lpAssetId', type: 'string', value: lpAssetId },
+      { key: '%s__nextBlockToProcess', type: 'integer', value: nextBlockToProcess },
+      { key: '%s__currentPeriod', type: 'integer', value: currentPeriod },
+      { key: `%s%d__startHeight__${period}`, type: 'integer', value: nextBlockToProcess },
+      { key: `%s%d__price__${period}`, type: 'integer', value: price },
+      { key: '%s__periodLength', type: 'integer', value: periodLength },
+      { key: '%s__blockProcessingReward', type: 'integer', value: blockProcessingReward }
     ],
     chainId
   }, accounts.factory.seed))
@@ -87,13 +91,5 @@ export const setup = async () => {
   await setScriptFromFile(calculatorPath, accounts.calculator.seed)
   await setScriptFromFile(factoryMockPath, accounts.factory.seed)
 
-  const accountsInfo = Object.entries(accounts)
-    .map(([name, { seed, address }]) => [name, address])
-  console.log(table(accountsInfo, {
-    border: getBorderCharacters('norc'),
-    drawHorizontalLine: (index, size) => index === 0 || index === 1 || index === size,
-    header: { content: `pid: ${process.pid}, nonce: ${nonce}` }
-  }))
-
-  return { accounts, lpAssetId }
+  return { accounts, lpAssetId, periodLength, blockProcessingReward, price }
 }
