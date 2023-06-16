@@ -127,7 +127,6 @@ func claimLP(userAddressBytes: ByteVector) = {
 }
 
 # payment in waves to fulfill all withdrawal requests
-# TODO: do not finalize if there are unprocessed blocks
 @Callable(i)
 func finalize(
   newTreasuryVolumeInWaves: Int,
@@ -135,16 +134,34 @@ func finalize(
   pwrManagersBonus: Int, # 0..1×10⁸
   treasuryVolumeDiffAllocationCoef: Int # -1..1×10⁸
 ) = {
+  let currentPeriodOrFail =
+    factoryAddressOrFail.getInteger(keyCurrentPeriod())
+    .valueOrErrorMessage(wrapErr("invalid period"))
+  let periodLength =
+    factoryAddressOrFail.getInteger(keyPeriodLength())
+    .valueOrErrorMessage(wrapErr("invalid period length"))
+  let currentStartHeight = factoryAddressOrFail
+    .getInteger(keyStartHeight(currentPeriodOrFail))
+    .valueOrErrorMessage(wrapErr("invalid start height"))
+  let currentPriceOrFail =
+    factoryAddressOrFail.getInteger(keyPriceForPeriod(currentPeriodOrFail))
+    .valueOrErrorMessage(wrapErr("invalid price"))
+  let nextBlockToProcess = factoryAddressOrFail
+    .getInteger(keyNextBlockToProcess())
+    .valueOrErrorMessage(wrapErr("invalid next block to process"))
+
+  let periodEndHeight = currentStartHeight + periodLength - 1
+
   strict checks = [
     i.originCaller == factoryAddressOrFail || throwErr("permission denied"),
+    nextBlockToProcess > periodEndHeight || throwErr("unprocessed blocks"),
     newTreasuryVolumeInWaves >= 0 || throwErr("invalid new treasury volume"),
     xtnPrice >= 0 || throwErr("invalid XTN price"),
     pwrManagersBonus >= 0 && pwrManagersBonus <= SCALE8 || throwErr("invalid PWR managers bonus"),
     treasuryVolumeDiffAllocationCoef >= -SCALE8 && treasuryVolumeDiffAllocationCoef <= SCALE8
       || throwErr("invalid treasury volume diff allocation coefficient")
   ]
-  let currentPeriodOrFail =
-    factoryAddressOrFail.getInteger(keyCurrentPeriod()).valueOrErrorMessage(wrapErr("invalid period"))
+
   let newPeriod = currentPeriodOrFail + 1
   # TODO: calculate new price
   let newPrice = SCALE8
