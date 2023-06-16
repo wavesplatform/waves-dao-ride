@@ -166,8 +166,8 @@ func finalize(
   # TODO: calculate new price
   let newPrice = SCALE8
   
-  # TODO: burn total withdrawal amount
-  let lpAssetAmountToBurn = 0
+  # burn total withdrawal amount
+  let lpAssetAmountToBurn = factoryAddressOrFail.getInteger(keyWithdrawal()).valueOrElse(0)
 
   let factoryActions = [
     # update period
@@ -248,6 +248,7 @@ func withdraw(userAddressBytes: ByteVector) = {
   ], factoryActions)
 }
 
+# TODO: target period should be greater than current period
 @Callable(i)
 func cancelWithdraw(userAddressBytes: ByteVector, txId: ByteVector) = {
   strict checkCaller = i.onlyFactory()
