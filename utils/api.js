@@ -36,7 +36,9 @@ export const setScriptFromFile = async (
   account,
   transform = (content) => content
 ) => {
-  const { script, extraFee, error } = await api.utils.fetchCompileCode(await readFile(path, { encoding: 'utf-8' }))
+  const file = await readFile(path, { encoding: 'utf-8' })
+  const fileTransformed = transform(file)
+  const { script, extraFee, error } = await api.utils.fetchCompileCode(fileTransformed)
   if (error) throw new Error(error.message)
   const ssTx = setScript({
     script,
