@@ -153,6 +153,7 @@ func finalize(
   pwrManagersBonus: Int, # 0..1×10⁸
   treasuryVolumeDiffAllocationCoef: Int # -1..1×10⁸
 ) = {
+  strict checkCaller = i.onlyFactory()
   let currentPeriodOrFail =
     factoryAddressOrFail.getInteger(keyCurrentPeriod())
     .valueOrErrorMessage(wrapErr("invalid period"))
@@ -172,7 +173,7 @@ func finalize(
   let periodEndHeight = currentStartHeight + periodLength - 1
 
   strict checks = [
-    i.originCaller == factoryAddressOrFail || throwErr("permission denied"),
+    i.originCaller == treasuryAddressOrFail || throwErr("permission denied"),
     nextBlockToProcess > periodEndHeight || throwErr("unprocessed blocks"),
     newTreasuryVolumeInWaves >= 0 || throwErr("invalid new treasury volume"),
     xtnPrice >= 0 || throwErr("invalid XTN price"),
@@ -195,7 +196,9 @@ func finalize(
     then fraction(profitRaw, pwrManagersBonus, SCALE8)
     else 0
   let profit = profitRaw - pwrManagersBonusAmount
-  let donationPart = fraction(investedXtnAmountInWaves, SCALE8, currentTreasuryVolumeInWaves)
+  let donationPart = if (currentTreasuryVolumeInWaves > 0)
+    then fraction(investedXtnAmountInWaves, SCALE8, currentTreasuryVolumeInWaves)
+    else 0
   let donationProfitPartRaw = fraction(profit, donationPart, SCALE8)
   let investmentProfitPartRaw = profit - donationProfitPartRaw
   let treasuryVolumeDiffAllocationCoefAbs = abs(treasuryVolumeDiffAllocationCoef)

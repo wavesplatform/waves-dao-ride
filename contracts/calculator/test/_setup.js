@@ -14,7 +14,7 @@ import {
 
 const nonceLength = 3
 const calculatorPath = format({ dir: 'contracts/calculator', base: 'calculator.ride' })
-const factoryMockPath = format({ dir: 'contracts/factory', base: 'factory.ride' })
+const factoryPath = format({ dir: 'contracts/factory', base: 'factory.ride' })
 
 export const setup = async ({
   periodLength = 2,
@@ -58,6 +58,15 @@ export const setup = async ({
     chainId
   }, accounts.factory.seed))
 
+  const { id: xtnAssetId } = await broadcastAndWait(issue({
+    name: 'XTN.',
+    description: '',
+    quantity: 1,
+    decimals: 6,
+    reissuable: true,
+    chainId
+  }, baseSeed))
+
   await broadcastAndWait(burn({
     assetId: lpAssetId,
     amount: 1,
@@ -78,6 +87,7 @@ export const setup = async ({
       { key: '%s__calculator', type: 'string', value: accounts.calculator.address },
       { key: '%s__treasury', type: 'string', value: daoAddress },
       { key: '%s__lpAssetId', type: 'string', value: lpAssetId },
+      { key: '%s__xtnAssetId', type: 'string', value: xtnAssetId },
       { key: '%s__nextBlockToProcess', type: 'integer', value: nextBlockToProcess },
       { key: '%s__currentPeriod', type: 'integer', value: currentPeriod },
       { key: `%s%d__startHeight__${period}`, type: 'integer', value: nextBlockToProcess },
@@ -89,7 +99,7 @@ export const setup = async ({
   }, accounts.factory.seed))
 
   await setScriptFromFile(calculatorPath, accounts.calculator.seed)
-  await setScriptFromFile(factoryMockPath, accounts.factory.seed)
+  await setScriptFromFile(factoryPath, accounts.factory.seed)
 
-  return { accounts, lpAssetId, periodLength, blockProcessingReward, price }
+  return { accounts, lpAssetId, xtnAssetId, periodLength, blockProcessingReward, price }
 }
