@@ -147,6 +147,7 @@ func claimLP(userAddressBytes: ByteVector) = {
 #   (0, 1] - profit to investment
 @Callable(i)
 func finalize(
+  userAddressBytes: ByteVector,
   newTreasuryVolumeInWaves: Int,
   xtnPrice: Int,
   pwrManagersBonus: Int, # 0..1×10⁸

@@ -132,8 +132,27 @@ func transferWaves(recepientBytes: ByteVector, amount: Int) =
 
 # finalize period
 @Callable(i)
-func finalize() =
-  (nil, calculatorAddressOrFail.reentrantInvoke("finalize", [i.caller.bytes], i.payments))
+func finalize(
+  newTreasuryVolumeInWaves: Int,
+  xtnPrice: Int,
+  pwrManagersBonus: Int,
+  treasuryVolumeDiffAllocationCoef: Int
+) = {
+  (
+    nil,
+    calculatorAddressOrFail.reentrantInvoke(
+      "finalize",
+      [
+        i.caller.bytes,
+        newTreasuryVolumeInWaves,
+        xtnPrice,
+        pwrManagersBonus,
+        treasuryVolumeDiffAllocationCoef
+      ],
+      i.payments
+    )
+  )
+}
 
 @Callable(i)
 func claimLP() =
