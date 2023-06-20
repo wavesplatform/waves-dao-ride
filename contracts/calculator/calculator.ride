@@ -24,8 +24,13 @@ func assetIdToString(assetId: ByteVector|Unit) = {
   }
 }
 
+func abs(n: Int) = {
+  if (n < 0) then -n else n
+}
+
 func keyFactoryAddress() = ["%s", "factory"].makeString(SEP)
 func keyLpAssetId() = ["%s", "lpAssetId"].makeString(SEP)
+func keyXtnAssetId() = ["%s", "xtnAssetId"].makeString(SEP)
 func keyTreasuryAddress() = ["%s", "treasury"].makeString(SEP)
 func keyInvested(assetId: ByteVector|Unit) = ["%s%s", "invested", assetIdToString(assetId)].makeString(SEP)
 func keyAvailable(userAddress: Address) = ["%s%s", "available", userAddress.toString()].makeString(SEP)
@@ -74,6 +79,15 @@ let lpAssetIdOption = match factoryAddressOption {
   case _: Unit => unit
 }
 let lpAssetIdOrFail = lpAssetIdOption.valueOrErrorMessage(wrapErr("invalid lpAssetId"))
+
+let xtnAssetIdOption = match factoryAddressOption {
+  case a: Address => match a.getString(keyXtnAssetId()) {
+    case s: String => s.fromBase58String()
+    case _: Unit => unit
+  }
+  case _: Unit => unit
+}
+let xtnAssetIdOrFail = xtnAssetIdOption.valueOrErrorMessage(wrapErr("invalid xtnAssetId"))
 
 let treasuryAddressOption = match factoryAddressOption {
   case a: Address => match a.getString(keyTreasuryAddress()) {
@@ -127,6 +141,10 @@ func claimLP(userAddressBytes: ByteVector) = {
 }
 
 # payment in waves to fulfill all withdrawal requests
+# treasuryVolumeDiffAllocationCoef:
+#   [-1, 0) - profit to donation
+#   0 - in proportion
+#   (0, 1] - profit to investment
 @Callable(i)
 func finalize(
   newTreasuryVolumeInWaves: Int,
@@ -162,25 +180,60 @@ func finalize(
       || throwErr("invalid treasury volume diff allocation coefficient")
   ]
 
+  let investedXtnAmount = factoryAddressOrFail.getInteger(
+    keyInvested(xtnAssetIdOrFail)
+  ).valueOrElse(0)
+  let investedWavesAmount = factoryAddressOrFail.getInteger(
+    keyInvested(unit)
+  ).valueOrElse(0)
+
+  let investedXtnAmountInWaves = fraction(investedXtnAmount, xtnPrice, SCALE8)
+  let currentTreasuryVolumeInWaves = investedXtnAmountInWaves + investedWavesAmount
+  let profitRaw = newTreasuryVolumeInWaves - currentTreasuryVolumeInWaves
+  let pwrManagersBonusAmount = if (profitRaw > 0)
+    then fraction(profitRaw, pwrManagersBonus, SCALE8)
+    else 0
+  let profit = profitRaw - pwrManagersBonusAmount
+  let donationPart = fraction(investedXtnAmountInWaves, SCALE8, currentTreasuryVolumeInWaves)
+  let donationProfitPartRaw = fraction(profit, donationPart, SCALE8)
+  let investmentProfitPartRaw = profit - donationProfitPartRaw
+  let treasuryVolumeDiffAllocationCoefAbs = abs(treasuryVolumeDiffAllocationCoef)
+  let amountToDonation = fraction(
+    investmentProfitPartRaw,
+    if (treasuryVolumeDiffAllocationCoef < 0) then treasuryVolumeDiffAllocationCoefAbs else 0,
+    SCALE8
+  )
+  let amountToInvestment = fraction(
+    donationProfitPartRaw,
+    if (treasuryVolumeDiffAllocationCoef > 0) then treasuryVolumeDiffAllocationCoefAbs else 0,
+    SCALE8
+  )
+  let donationProfitPart = donationProfitPartRaw - amountToInvestment + amountToDonation
+  let investmentProfitPart = investmentProfitPartRaw - amountToDonation + amountToInvestment
+  let investedWavesAmountNew = investedWavesAmount + investmentProfitPart
+  let investedXtnAmountNew = fraction(investedXtnAmountInWaves + donationProfitPart, SCALE8, xtnPrice)
+
   let newPeriod = currentPeriodOrFail + 1
-  # TODO: calculate new price
-  let newPrice = SCALE8
-  
-  # burn total withdrawal amount
+  # calculate new price
+  let lpAssetQuantity = lpAssetIdOrFail.assetInfo()
+    .valueOrErrorMessage(wrapErr("invalid lpAsset info")).quantity
+  let newPrice = fraction(investedWavesAmountNew, SCALE8, lpAssetQuantity)
+
   let lpAssetAmountToBurn = factoryAddressOrFail.getInteger(keyWithdrawal()).valueOrElse(0)
+  let paymentAmountMin = fraction(lpAssetAmountToBurn, newPrice, SCALE8)
+  strict checkPaymentAmount = if (
+    i.payments.size() == 1
+    && i.payments[0].assetId == unit
+    && i.payments[0].amount >= paymentAmountMin
+  ) then true else throwErr("invalid payments")
 
   let factoryActions = [
     # update period
     factoryAddressOrFail.invoke("integerEntry", [keyCurrentPeriod(), newPeriod], []),
     # update price
     factoryAddressOrFail.invoke("integerEntry", [keyPriceForPeriod(newPeriod), newPrice], []),
+    # burn total withdrawal amount
     factoryAddressOrFail.invoke("burn", [lpAssetAmountToBurn], [])
-    # factoryAddressOrFail.invoke("transferAsset", [
-    #   userAddressBytes, lpAssetAmount, lpAssetIdOrFail
-    # ], []),
-    # factoryAddressOrFail.invoke("transferWaves", [
-    #   treasuryAddressOrFail.bytes, paymentAmount
-    # ], [AttachedPayment(unit, paymentAmount)])
   ]
 
   (nil, factoryActions)
@@ -299,9 +352,9 @@ func claimWaves(userAddressBytes: ByteVector, txId: ByteVector) = {
   } else if (currentPeriodOrFail < targetPeriod) then {
     throwErr("invalid withdrawal request period")
   } else {
-    let currentPriceOrFail =
-      factoryAddressOrFail.getInteger(keyPriceForPeriod(currentPeriodOrFail)).valueOrErrorMessage(wrapErr("invalid price"))
-    let amount = if (currentPriceOrFail > 0) then fraction(lpAssetAmount, currentPriceOrFail, SCALE8) else 0
+    let priceOrFail =
+      factoryAddressOrFail.getInteger(keyPriceForPeriod(targetPeriod)).valueOrErrorMessage(wrapErr("invalid price"))
+    let amount = if (priceOrFail > 0) then fraction(lpAssetAmount, priceOrFail, SCALE8) else 0
     let factoryActions = [
       factoryAddressOrFail.invoke("stringEntry", [
         keyWithdrawalRequest(userAddress, txId),
