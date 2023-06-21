@@ -173,7 +173,6 @@ func finalize(
   let periodEndHeight = currentStartHeight + periodLength - 1
 
   strict checks = [
-    i.originCaller == treasuryAddressOrFail || throwErr("permission denied"),
     nextBlockToProcess > periodEndHeight || throwErr("unprocessed blocks"),
     newTreasuryVolumeInWaves >= 0 || throwErr("invalid new treasury volume"),
     xtnPrice >= 0 || throwErr("invalid XTN price"),
@@ -229,7 +228,7 @@ func finalize(
     i.payments.size() == 1
     && i.payments[0].assetId == unit
     && i.payments[0].amount >= paymentAmountMin
-  ) then true else throwErr("invalid payments")
+  ) then true else throwErr("invalid payments, payment amount min: " + paymentAmountMin.toString())
 
   let factoryActions = [
     # update period
