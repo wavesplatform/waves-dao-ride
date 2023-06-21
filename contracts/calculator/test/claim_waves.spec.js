@@ -68,7 +68,7 @@ describe(`[${process.pid}] calculator: claim waves`, () => {
       additionalFee: 4e5
     }, daoSeed))
 
-    await broadcastAndWait(invokeScript({
+    const { stateChanges } = await broadcastAndWait(invokeScript({
       dApp: accounts.factory.address,
       call: {
         function: 'claimWaves',
@@ -79,10 +79,17 @@ describe(`[${process.pid}] calculator: claim waves`, () => {
       chainId
     }, accounts.user1.seed))
 
+    const transfer = stateChanges.invokes[0].stateChanges.invokes[2].stateChanges.transfers[0]
+
     const { value: price } = await api.addresses.fetchDataKey(accounts.factory.address, '%s%d__price__1')
     const profitRaw = newTreasuryVolumeInWaves - investedWavesAmount
     const profit = profitRaw - profitRaw * pwrManagersBonus / scale8
     const expectedPrice = Math.floor((investedWavesAmount + profit) * scale8 / quantity)
     expect(price).to.equal(expectedPrice)
+    expect(transfer).to.deep.equal({
+      address: accounts.user1.address,
+      asset: null,
+      amount: Math.floor(paymentAmount * price / scale8)
+    })
   })
 })
