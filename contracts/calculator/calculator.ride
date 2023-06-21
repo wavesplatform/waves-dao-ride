@@ -249,9 +249,11 @@ func invest(userAddressBytes: ByteVector) = {
   strict checkCaller = i.onlyFactory()
   let userAddress = Address(userAddressBytes)
   let currentPeriodOrFail =
-    factoryAddressOrFail.getInteger(keyCurrentPeriod()).valueOrErrorMessage(wrapErr("invalid period"))
+    factoryAddressOrFail.getInteger(keyCurrentPeriod())
+    .valueOrErrorMessage(wrapErr("invalid period"))
   let currentPriceOrFail =
-    factoryAddressOrFail.getInteger(keyPriceForPeriod(currentPeriodOrFail)).valueOrErrorMessage(wrapErr("invalid price"))
+    factoryAddressOrFail.getInteger(keyPriceForPeriod(currentPeriodOrFail))
+    .valueOrErrorMessage(wrapErr("invalid price"))
   let payment = if (i.payments.size() == 1) then i.payments[0] else throwErr("invalid payments")
   let paymentAmount = if (payment.assetId == unit && payment.amount > 0) then {
     payment.amount
@@ -282,7 +284,8 @@ func withdraw(userAddressBytes: ByteVector) = {
   strict checkCaller = i.onlyFactory()
   let userAddress = Address(userAddressBytes)
   let currentPeriodOrFail =
-    factoryAddressOrFail.getInteger(keyCurrentPeriod()).valueOrErrorMessage(wrapErr("invalid period"))
+    factoryAddressOrFail.getInteger(keyCurrentPeriod())
+    .valueOrErrorMessage(wrapErr("invalid period"))
   let payment = if (i.payments.size() == 1) then i.payments[0] else throwErr(wrapErr("invalid payments"))
   let paymentAssetId = if (payment.assetId == lpAssetIdOrFail) then lpAssetIdOrFail else throwErr("invalid payment asset")
   let paymentAmount = if (payment.amount > 0) then payment.amount else throwErr("invalid payment amount")
