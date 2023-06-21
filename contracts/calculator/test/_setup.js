@@ -15,6 +15,7 @@ import {
 const nonceLength = 3
 const calculatorPath = format({ dir: 'contracts/calculator', base: 'calculator.ride' })
 const factoryPath = format({ dir: 'contracts/factory', base: 'factory.ride' })
+const scale8 = 1e8
 
 export const setup = async ({
   periodLength = 2,
@@ -22,7 +23,9 @@ export const setup = async ({
   nextBlockToProcess = 2,
   currentPeriod = 0,
   price = 100000000,
-  period = 0
+  period = 0,
+  investedXtnAmount = 0,
+  investedWavesAmount = 0
 } = {}) => {
   const nonce = wc.random(nonceLength, 'Buffer').toString('hex')
   const names = [
@@ -49,10 +52,13 @@ export const setup = async ({
   }, baseSeed)
   await broadcastAndWait(massTransferTx)
 
+  const lpAssetAmountToIssueRaw = Math.floor(investedWavesAmount * price / scale8)
+  const lpAssetAmountToIssue = lpAssetAmountToIssueRaw === 0 ? 1 : lpAssetAmountToIssueRaw
+
   const { id: lpAssetId } = await broadcastAndWait(issue({
     name: 'WAVESDAOLP',
     description: '',
-    quantity: 1,
+    quantity: lpAssetAmountToIssue,
     decimals: 8,
     reissuable: true,
     chainId
@@ -67,11 +73,13 @@ export const setup = async ({
     chainId
   }, baseSeed))
 
-  await broadcastAndWait(burn({
-    assetId: lpAssetId,
-    amount: 1,
-    chainId
-  }, accounts.factory.seed))
+  if (lpAssetAmountToIssueRaw === 0) {
+    await broadcastAndWait(burn({
+      assetId: lpAssetId,
+      amount: 1,
+      chainId
+    }, accounts.factory.seed))
+  }
 
   await broadcastAndWait(data({
     additionalFee: 4e5,
@@ -93,7 +101,9 @@ export const setup = async ({
       { key: `%s%d__startHeight__${period}`, type: 'integer', value: nextBlockToProcess },
       { key: `%s%d__price__${period}`, type: 'integer', value: price },
       { key: '%s__periodLength', type: 'integer', value: periodLength },
-      { key: '%s__blockProcessingReward', type: 'integer', value: blockProcessingReward }
+      { key: '%s__blockProcessingReward', type: 'integer', value: blockProcessingReward },
+      { key: '%s%s__invested__WAVES', type: 'integer', value: investedWavesAmount },
+      { key: `%s%s__invested__${xtnAssetId}`, type: 'integer', value: investedXtnAmount }
     ],
     chainId
   }, accounts.factory.seed))

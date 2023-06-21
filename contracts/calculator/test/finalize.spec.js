@@ -7,12 +7,14 @@ import { invokeScript } from '@waves/waves-transactions'
 chai.use(chaiAsPromised)
 const { expect } = chai
 
+const scale8 = 1e8
+
 describe(`[${process.pid}] calculator: finalize`, () => {
-  let accounts
+  let accounts, lpAssetId
 
   before(async () => {
     const { height } = await api.blocks.fetchHeight();
-    ({ accounts } = await setup({
+    ({ accounts, lpAssetId } = await setup({
       nextBlockToProcess: height,
       periodLength: 1
     }))
@@ -22,14 +24,6 @@ describe(`[${process.pid}] calculator: finalize`, () => {
       call: { function: 'processBlocks', args: [] },
       chainId
     }, accounts.user1.seed))
-
-    // const paymentAmount = 1e8
-    // await broadcastAndWait(invokeScript({
-    //   dApp: accounts.factory.address,
-    //   call: { function: 'invest', args: [] },
-    //   payment: [{ assetId: null, amount: paymentAmount }],
-    //   chainId
-    // }, accounts.user1.seed))
   })
 
   it('only factory can call finalize', async () => {
@@ -60,7 +54,7 @@ describe(`[${process.pid}] calculator: finalize`, () => {
     const xtnPrice = 0.05 * 1e8
     const pwrManagersBonus = 0.2 * 1e8
     const treasuryVolumeDiffAllocationCoef = 0
-    const { stateChanges } = await broadcastAndWait(invokeScript({
+    await broadcastAndWait(invokeScript({
       dApp: accounts.factory.address,
       call: {
         function: 'finalize',
@@ -75,6 +69,10 @@ describe(`[${process.pid}] calculator: finalize`, () => {
       chainId,
       additionalFee: 4e5
     }, daoSeed))
-    console.log(stateChanges)
+    const [{ quantity }] = await api.assets.fetchDetails([lpAssetId])
+    const { value: price } = await api.addresses.fetchDataKey(accounts.factory.address, '%s%d__price__1')
+    const profit = newTreasuryVolumeInWaves
+    const expectedPrice = Math.floor(profit * (scale8 - pwrManagersBonus) / quantity)
+    expect(price).to.equal(expectedPrice)
   })
 })
