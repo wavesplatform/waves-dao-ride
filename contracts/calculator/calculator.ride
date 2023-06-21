@@ -236,7 +236,8 @@ func finalize(
     # update price
     factoryAddressOrFail.invoke("integerEntry", [keyPriceForPeriod(newPeriod), newPrice], []),
     # burn total withdrawal amount
-    factoryAddressOrFail.invoke("burn", [lpAssetAmountToBurn], [])
+    factoryAddressOrFail.invoke("burn", [lpAssetAmountToBurn], []),
+    factoryAddressOrFail.invoke("integerEntry", [keyWithdrawal(), 0], [])
   ]
 
   (nil, factoryActions)
