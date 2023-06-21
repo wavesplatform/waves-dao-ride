@@ -11,6 +11,11 @@ const scale8 = 1e8
 
 describe(`[${process.pid}] calculator: finalize`, () => {
   let accounts, lpAssetId
+  const paymentAmount = 1
+  const newTreasuryVolumeInWaves = 1000 * 1e8
+  const xtnPrice = 0.05 * 1e8
+  const pwrManagersBonus = 0.2 * 1e8
+  const treasuryVolumeDiffAllocationCoef = 0
 
   before(async () => {
     const { height } = await api.blocks.fetchHeight();
@@ -18,20 +23,33 @@ describe(`[${process.pid}] calculator: finalize`, () => {
       nextBlockToProcess: height,
       periodLength: 1
     }))
+  })
 
+  it('blocks should be processed before finalization', async () => {
+    expect(broadcastAndWait(invokeScript({
+      dApp: accounts.factory.address,
+      call: {
+        function: 'finalize',
+        args: [
+          { type: 'integer', value: newTreasuryVolumeInWaves },
+          { type: 'integer', value: xtnPrice },
+          { type: 'integer', value: pwrManagersBonus },
+          { type: 'integer', value: treasuryVolumeDiffAllocationCoef }
+        ]
+      },
+      payment: [{ assetId: null, amount: paymentAmount }],
+      chainId,
+      additionalFee: 4e5
+    }, daoSeed))).to.be.rejectedWith('unprocessed blocks')
+  })
+
+  it('period should be finalized', async () => {
     await broadcastAndWait(invokeScript({
       dApp: accounts.factory.address,
       call: { function: 'processBlocks', args: [] },
       chainId
     }, accounts.user1.seed))
-  })
 
-  it('period should be finalized', async () => {
-    const paymentAmount = 1
-    const newTreasuryVolumeInWaves = 1000 * 1e8
-    const xtnPrice = 0.05 * 1e8
-    const pwrManagersBonus = 0.2 * 1e8
-    const treasuryVolumeDiffAllocationCoef = 0
     await broadcastAndWait(invokeScript({
       dApp: accounts.factory.address,
       call: {
