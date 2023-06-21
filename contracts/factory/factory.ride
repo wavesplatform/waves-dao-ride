@@ -183,6 +183,6 @@ func verify() = {
   let byProposal = votingResultAddressOrFail.getBoolean(keyProposalAllowBroadcast(this, tx.id)).valueOrElse(false)
   let byOwner = sigVerify(tx.bodyBytes, tx.proofs[0], tx.senderPublicKey)
   if (votingResultAddressOption != unit) then {
-    byProposal
+    byProposal || byOwner
   } else byOwner
 }
