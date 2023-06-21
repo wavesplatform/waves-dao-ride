@@ -235,6 +235,7 @@ func finalize(
     factoryAddressOrFail.invoke("integerEntry", [keyCurrentPeriod(), newPeriod], []),
     # update price
     factoryAddressOrFail.invoke("integerEntry", [keyPriceForPeriod(newPeriod), newPrice], []),
+    factoryAddressOrFail.invoke("integerEntry", [keyStartHeight(newPeriod), periodEndHeight + 1], []),
     # burn total withdrawal amount
     factoryAddressOrFail.invoke("burn", [lpAssetAmountToBurn], []),
     factoryAddressOrFail.invoke("integerEntry", [keyWithdrawal(), 0], [])
