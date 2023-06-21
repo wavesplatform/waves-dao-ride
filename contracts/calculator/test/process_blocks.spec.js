@@ -1,9 +1,9 @@
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
-import { api, daoAddress, chainId, broadcastAndWait, baseSeed } from '../../../utils/api.js'
+import { api, chainId, broadcastAndWait, baseSeed, daoSeed } from '../../../utils/api.js'
 import { setup } from './_setup.js'
 import { invokeScript } from '@waves/waves-transactions'
-import { address } from '@waves/ts-lib-crypto'
+import wc from '@waves/ts-lib-crypto'
 
 chai.use(chaiAsPromised)
 const { expect } = chai
@@ -19,7 +19,7 @@ describe(`[${process.pid}] calculator: process blocks`, () => {
     const targetHeight = 2
     const response = await api.utils.fetchEvaluate(
       accounts.calculator.address,
-      `rewardForOption(blockInfoByHeight(${targetHeight}).value().rewards, Address(base58'${daoAddress}'))`
+      `rewardForOption(blockInfoByHeight(${targetHeight}).value().rewards, Address(base58'${wc.address(daoSeed, chainId)}'))`
     )
     const expectedReward = 200000000
     expect(response).to.not.have.property('error')
@@ -37,7 +37,7 @@ describe(`[${process.pid}] calculator: process blocks`, () => {
       call: { function: 'claimLP', args: [] },
       chainId
     }, baseSeed))
-    const { balance } = await api.assets.fetchBalanceAddressAssetId(address(baseSeed, chainId), lpAssetId)
+    const { balance } = await api.assets.fetchBalanceAddressAssetId(wc.address(baseSeed, chainId), lpAssetId)
     const daoBlockReward = 2e8
     const expectedBalance = daoBlockReward * periodLength - blockProcessingReward
     expect(balance).to.equal(expectedBalance)
