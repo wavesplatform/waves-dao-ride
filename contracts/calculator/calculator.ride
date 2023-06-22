@@ -190,6 +190,12 @@ func finalize(
     keyInvested(unit)
   ).valueOrElse(0)
 
+  # wavesDecimalsMultiplier = 10⁸
+  # xtnDecimalsMultiplier = 10⁶
+  # xtnPriceMultiplier = 10⁸
+  # investedXtnAmountInWaves
+  #   = investedXtnAmount × xtnPrice × wavesDecimalsMultiplier / (xtnDecimalsMultiplier × xtnPriceMultiplier)
+  #   = investedXtnAmount × xtnPrice / xtnDecimalsMultiplier
   let investedXtnAmountInWaves = fraction(
     investedXtnAmount,
     xtnPrice,
