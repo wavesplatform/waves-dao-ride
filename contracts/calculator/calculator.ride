@@ -235,7 +235,7 @@ func finalize(
   let newPrice = fraction(investedWavesAmountNew, SCALE8, lpAssetQuantity)
 
   let lpAssetAmountToBurn = factoryAddressOrFail.getInteger(keyWithdrawal()).valueOrElse(0)
-  let paymentAmountMin = fraction(lpAssetAmountToBurn, newPrice, SCALE8)
+  let paymentAmountMin = max([0, fraction(lpAssetAmountToBurn, newPrice, SCALE8)])
   strict checkPaymentAmount = if (
     paymentAmountMin == 0
     || (
