@@ -226,9 +226,12 @@ func finalize(
   let lpAssetAmountToBurn = factoryAddressOrFail.getInteger(keyWithdrawal()).valueOrElse(0)
   let paymentAmountMin = fraction(lpAssetAmountToBurn, newPrice, SCALE8)
   strict checkPaymentAmount = if (
-    i.payments.size() == 1
-    && i.payments[0].assetId == unit
-    && i.payments[0].amount >= paymentAmountMin
+    paymentAmountMin == 0
+    || (
+      i.payments.size() == 1
+      && i.payments[0].assetId == unit
+      && i.payments[0].amount >= paymentAmountMin
+    )
   ) then true else throwErr("invalid payments, payment amount min: " + paymentAmountMin.toString())
 
   let factoryActions = [
