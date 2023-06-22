@@ -5,11 +5,10 @@
 let SEP = "__"
 let CONTRACT_NAME = "calculator.ride"
 let SCALE8 = 100_000_000
+let SCALE6 = 1_000_000
 let PENDING = "PENDING"
 let FINISHED = "FINISHED"
 let WAVES = "WAVES"
-let wavesDecimals = 8
-let xtnDecimals = 6
 
 func wrapErr(s: String) = {
   CONTRACT_NAME + ": " + s
@@ -193,8 +192,8 @@ func finalize(
 
   let investedXtnAmountInWaves = fraction(
     investedXtnAmount,
-    xtnPrice * wavesDecimals,
-    SCALE8 * xtnDecimals
+    xtnPrice,
+    SCALE6
   )
   let currentTreasuryVolumeInWaves = investedXtnAmountInWaves + investedWavesAmount
   let profitRaw = newTreasuryVolumeInWaves - currentTreasuryVolumeInWaves
@@ -221,7 +220,7 @@ func finalize(
   let donationProfitPart = donationProfitPartRaw - amountToInvestment + amountToDonation
   let investmentProfitPart = investmentProfitPartRaw - amountToDonation + amountToInvestment
   let investedWavesAmountNew = investedWavesAmount + investmentProfitPart
-  let investedXtnAmountNew = fraction(investedXtnAmountInWaves + donationProfitPart, SCALE8 * xtnDecimals, xtnPrice * wavesDecimals)
+  let investedXtnAmountNew = fraction(investedXtnAmountInWaves + donationProfitPart, SCALE6, xtnPrice)
 
   let newPeriod = currentPeriodOrFail + 1
   # calculate new price
