@@ -25,6 +25,28 @@ describe(`[${process.pid}] calculator: finalize`, () => {
     }))
   })
 
+  it('only factory can call finalize', async () => {
+    const newTreasuryVolumeInWaves = 1000 * 1e8
+    const xtnPrice = 0.05 * 1e8
+    const pwrManagersBonus = 0.2 * 1e8
+    const treasuryVolumeDiffAllocationCoef = 0
+
+    return expect(broadcastAndWait(invokeScript({
+      dApp: accounts.factory.address,
+      call: {
+        function: 'finalize',
+        args: [
+          { type: 'integer', value: newTreasuryVolumeInWaves },
+          { type: 'integer', value: xtnPrice },
+          { type: 'integer', value: pwrManagersBonus },
+          { type: 'integer', value: treasuryVolumeDiffAllocationCoef }
+        ]
+      },
+      payment: [],
+      chainId
+    }, accounts.user1.seed))).to.be.rejectedWith('permission denied')
+  })
+
   it('blocks should be processed before finalization', async () => {
     expect(broadcastAndWait(invokeScript({
       dApp: accounts.factory.address,

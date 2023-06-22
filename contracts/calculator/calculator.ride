@@ -173,6 +173,7 @@ func finalize(
   let periodEndHeight = currentStartHeight + periodLength - 1
 
   strict checks = [
+    i.originCaller == treasuryAddressOrFail || throwErr("permission denied"),
     nextBlockToProcess > periodEndHeight || throwErr("unprocessed blocks"),
     newTreasuryVolumeInWaves >= 0 || throwErr("invalid new treasury volume"),
     xtnPrice >= 0 || throwErr("invalid XTN price"),
