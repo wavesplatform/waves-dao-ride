@@ -4,6 +4,7 @@
 | :---------------------------- | :------- |
 | `%s__calculator`              | `String` |
 | `%s__treasury`                | `String` |
+| `%s__config`                  | `String` |
 | `%s__lpAssetId`               | `String` |
 | `%s__xtnAssetId`              | `String` |
 | `%s__currentPeriod`           | `Int`    |
