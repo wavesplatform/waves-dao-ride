@@ -2,6 +2,51 @@
   "senderPublicKey": "7iwk3fSEypQw8aS1jGbgX19wsMviMu9tAENmGtHir9He",
   "data": [
     {
+      "key": "%s__calculator",
+      "type": "string",
+      "value": "3P9eqGUMMYN7AESPJ5KaF15Awzm3uqAgcSa"
+    },
+    {
+      "key": "%s__treasury",
+      "type": "string",
+      "value": "3PEgG7eZHLFhcfsTSaYxgRhZsh4AxMvA4Ms"
+    },
+    {
+      "key": "%s__lpAssetId",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "%s__xtnAssetId",
+      "type": "string",
+      "value": "DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p"
+    },
+    {
+      "key": "%s__currentPeriod",
+      "type": "integer",
+      "value": 0
+    },
+    {
+      "key": "%s__periodLength",
+      "type": "integer",
+      "value": 129600
+    },
+    {
+      "key": "%s%d__startHeight__0",
+      "type": "integer",
+      "value": 3644396
+    },
+    {
+      "key": "%s%d__price__0",
+      "type": "integer",
+      "value": 100000000
+    },
+    {
+      "key": "%s__nextBlockToProcess",
+      "type": "integer",
+      "value": 0
+    },
+    {
       "key": "%s%s__invested__WAVES",
       "type": "integer",
       "value": 122581754945
