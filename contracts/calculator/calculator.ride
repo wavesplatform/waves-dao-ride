@@ -8,6 +8,8 @@ let SCALE8 = 100_000_000
 let PENDING = "PENDING"
 let FINISHED = "FINISHED"
 let WAVES = "WAVES"
+let wavesDecimals = 8
+let xtnDecimals = 6
 
 func wrapErr(s: String) = {
   CONTRACT_NAME + ": " + s
@@ -189,7 +191,11 @@ func finalize(
     keyInvested(unit)
   ).valueOrElse(0)
 
-  let investedXtnAmountInWaves = fraction(investedXtnAmount, xtnPrice, SCALE8)
+  let investedXtnAmountInWaves = fraction(
+    investedXtnAmount,
+    xtnPrice * wavesDecimals,
+    SCALE8 * xtnDecimals
+  )
   let currentTreasuryVolumeInWaves = investedXtnAmountInWaves + investedWavesAmount
   let profitRaw = newTreasuryVolumeInWaves - currentTreasuryVolumeInWaves
   let pwrManagersBonusAmount = if (profitRaw > 0)
@@ -215,7 +221,7 @@ func finalize(
   let donationProfitPart = donationProfitPartRaw - amountToInvestment + amountToDonation
   let investmentProfitPart = investmentProfitPartRaw - amountToDonation + amountToInvestment
   let investedWavesAmountNew = investedWavesAmount + investmentProfitPart
-  let investedXtnAmountNew = fraction(investedXtnAmountInWaves + donationProfitPart, SCALE8, xtnPrice)
+  let investedXtnAmountNew = fraction(investedXtnAmountInWaves + donationProfitPart, SCALE8 * xtnDecimals, xtnPrice * wavesDecimals)
 
   let newPeriod = currentPeriodOrFail + 1
   # calculate new price
