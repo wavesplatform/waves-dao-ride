@@ -1,9 +1,10 @@
 {
   "senderPublicKey": "7iwk3fSEypQw8aS1jGbgX19wsMviMu9tAENmGtHir9He",
   "quantity": 122581754945,
+  "decimals": 8,
   "fee": 100000000,
-  "name": "",
-  "description": "",
+  "name": "WAVESDLP",
+  "description": "WavesDAO liquidity provider token. https://wavesdao.tech/",
   "type": 3,
   "version": 2,
   "reissuable": true,
