@@ -9,7 +9,7 @@ import { format } from 'path'
 import { table, getBorderCharacters } from 'table'
 
 import {
-  chainId, broadcastAndWait, baseSeed, setScriptFromFile, daoSeed
+  chainId, broadcastAndWait, baseSeed, setScriptFromFile, daoAddress
 } from '../../../utils/api.js'
 
 const nonceLength = 3
@@ -93,7 +93,7 @@ export const setup = async ({
     additionalFee: 4e5,
     data: [
       { key: '%s__calculator', type: 'string', value: accounts.calculator.address },
-      { key: '%s__treasury', type: 'string', value: wc.address(daoSeed, chainId) },
+      { key: '%s__treasury', type: 'string', value: daoAddress() },
       { key: '%s__lpAssetId', type: 'string', value: lpAssetId },
       { key: '%s__xtnAssetId', type: 'string', value: xtnAssetId },
       { key: '%s__nextBlockToProcess', type: 'integer', value: nextBlockToProcess },

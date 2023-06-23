@@ -1,6 +1,6 @@
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
-import { api, chainId, broadcastAndWait, baseSeed, daoSeed } from '../../../utils/api.js'
+import { api, chainId, broadcastAndWait, baseSeed, daoAddress } from '../../../utils/api.js'
 import { setup } from './_setup.js'
 import { invokeScript } from '@waves/waves-transactions'
 import wc from '@waves/ts-lib-crypto'
@@ -19,7 +19,7 @@ describe(`[${process.pid}] calculator: process blocks`, () => {
     const targetHeight = 2
     const response = await api.utils.fetchEvaluate(
       accounts.calculator.address,
-      `rewardForOption(blockInfoByHeight(${targetHeight}).value().rewards, Address(base58'${wc.address(daoSeed, chainId)}'))`
+      `rewardForOption(blockInfoByHeight(${targetHeight}).value().rewards, Address(base58'${daoAddress()}'))`
     )
     const expectedReward = 200000000
     expect(response).to.not.have.property('error')
