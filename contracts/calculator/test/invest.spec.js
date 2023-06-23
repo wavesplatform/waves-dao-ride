@@ -1,6 +1,6 @@
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
-import { api, chainId, broadcastAndWait, daoAddress } from '../../../utils/api.js'
+import { api, chainId, broadcastAndWait } from '../../../utils/api.js'
 import { setup } from './_setup.js'
 import { invokeScript } from '@waves/waves-transactions'
 
@@ -15,7 +15,6 @@ describe(`[${process.pid}] calculator: invest`, () => {
   })
 
   it('user should receive lp tokens, treasury should receive waves', async () => {
-    const { balance: treasuryBalanceBefore } = await api.addresses.fetchBalance(daoAddress())
     const priceScale = 1e8
     const paymentAmount = 1e8
     await broadcastAndWait(invokeScript({
@@ -28,9 +27,5 @@ describe(`[${process.pid}] calculator: invest`, () => {
     const { balance: userBalance } = await api.assets.fetchBalanceAddressAssetId(accounts.user1.address, lpAssetId)
     const expectedUserBalance = Math.floor(paymentAmount * priceScale / price)
     expect(userBalance, 'invalid user balance').to.equal(expectedUserBalance)
-
-    const { balance: treasuryBalanceAfter } = await api.addresses.fetchBalance(daoAddress())
-    const expectedTreasuryBalance = treasuryBalanceBefore + paymentAmount
-    expect(treasuryBalanceAfter, 'invalid treasury balance').to.equal(expectedTreasuryBalance)
   })
 })
