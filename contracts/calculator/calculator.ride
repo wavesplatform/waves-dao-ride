@@ -456,6 +456,8 @@ func processBlocks(userAddressBytes: ByteVector) = {
           keyBlockProcessed(targetBlockHeight),
           makeString([
             i.transactionId.toBase58String(),
+            currentPeriodOrFail.toString(),
+            generator.toString(),
             userAddressBytes.toBase58String(),
             treasuryRewardOrFail.toString(),
             callerReward.toString(),
