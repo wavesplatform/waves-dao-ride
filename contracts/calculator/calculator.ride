@@ -236,14 +236,21 @@ func finalize(
 
   let lpAssetAmountToBurn = factoryAddressOrFail.getInteger(keyWithdrawal()).valueOrElse(0)
   let paymentAmountMin = max([0, fraction(lpAssetAmountToBurn, newPrice, SCALE8)])
-  strict checkPaymentAmount = if (
+  let paymentOption = if (i.payments.size() > 0) then i.payments[0] else unit
+  let paymentAmount = paymentOption.value().amount
+  let paymentAssetId = paymentOption.value().assetId
+  strict checkPayment = if (
     paymentAmountMin == 0
     || (
-      i.payments.size() == 1
-      && i.payments[0].assetId == unit
-      && i.payments[0].amount >= paymentAmountMin
+      paymentOption != unit
+      && paymentAssetId == unit
+      && paymentAmount >= paymentAmountMin
     )
   ) then true else throwErr("invalid payments, payment amount min: " + paymentAmountMin.toString())
+
+  let actions = if (paymentOption != unit) then [
+    ScriptTransfer(factoryAddressOrFail, paymentAmount, paymentAssetId)
+  ] else nil
 
   let factoryActions = [
     # update period
@@ -256,7 +263,7 @@ func finalize(
     factoryAddressOrFail.invoke("integerEntry", [keyWithdrawal(), 0], [])
   ]
 
-  (nil, factoryActions)
+  (actions, factoryActions)
 }
 
 # payment in waves
@@ -271,12 +278,16 @@ func invest(userAddressBytes: ByteVector) = {
     factoryAddressOrFail.getInteger(keyPriceForPeriod(currentPeriodOrFail))
     .valueOrErrorMessage(wrapErr("invalid price"))
   let payment = if (i.payments.size() == 1) then i.payments[0] else throwErr("invalid payments")
-  let paymentAmount = if (payment.assetId == unit && payment.amount > 0) then {
-    payment.amount
+  let (paymentAmount, paymentAssetId) = if (payment.assetId == unit && payment.amount > 0) then {
+    (payment.amount, payment.assetId)
   } else throwErr("invalid payment amount")
   let lpAssetAmount = if (currentPriceOrFail > 0) then fraction(paymentAmount, SCALE8, currentPriceOrFail) else 0
   let invested = factoryAddressOrFail.getInteger(keyInvested(unit)).valueOrElse(0)
   
+  let actions = [
+    ScriptTransfer(treasuryAddressOrFail, paymentAmount, paymentAssetId)
+  ]
+
   let factoryActions = [
     # increase invested amount
     factoryAddressOrFail.invoke("integerEntry", [
@@ -285,13 +296,10 @@ func invest(userAddressBytes: ByteVector) = {
     factoryAddressOrFail.invoke("reissue", [lpAssetAmount], []),
     factoryAddressOrFail.invoke("transferAsset", [
       userAddressBytes, lpAssetAmount, lpAssetIdOrFail
-    ], []),
-    factoryAddressOrFail.invoke("transferWaves", [
-      treasuryAddressOrFail.bytes, paymentAmount
-    ], [AttachedPayment(unit, paymentAmount)])
+    ], [])
   ]
 
-  (nil, factoryActions)
+  (actions, factoryActions)
 }
 
 # payment in lp asset
@@ -307,6 +315,10 @@ func withdraw(userAddressBytes: ByteVector) = {
   let paymentAmount = if (payment.amount > 0) then payment.amount else throwErr("invalid payment amount")
   let withdrawal = factoryAddressOrFail.getInteger(keyWithdrawal()).valueOrElse(0)
 
+  let actions = [
+    ScriptTransfer(factoryAddressOrFail, paymentAmount, paymentAssetId)
+  ]
+
   # increase total withdrawal amount
   strict factoryActions = [
     factoryAddressOrFail.invoke("integerEntry", [
@@ -319,9 +331,7 @@ func withdraw(userAddressBytes: ByteVector) = {
     ], [])
   ]
 
-  ([
-    ScriptTransfer(factoryAddressOrFail, paymentAmount, paymentAssetId)
-  ], factoryActions)
+  (actions, factoryActions)
 }
 
 @Callable(i)
