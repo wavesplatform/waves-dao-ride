@@ -49,7 +49,7 @@
     {
       "key": "%s__nextBlockToProcess",
       "type": "integer",
-      "value": 0
+      "value": 3720000
     },
     {
       "key": "%s%s__invested__WAVES",
