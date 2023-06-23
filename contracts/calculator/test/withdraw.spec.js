@@ -23,6 +23,7 @@ describe(`[${process.pid}] calculator: withdraw`, () => {
   })
 
   it('total withdrawal amount should be increased', async () => {
+    const { balance: factoryBalanceBefore } = await api.assets.fetchBalanceAddressAssetId(accounts.factory.address, lpAssetId)
     const paymentAmount = 1e8
     await broadcastAndWait(invokeScript({
       dApp: accounts.factory.address,
@@ -30,7 +31,10 @@ describe(`[${process.pid}] calculator: withdraw`, () => {
       payment: [{ assetId: lpAssetId, amount: paymentAmount }],
       chainId
     }, accounts.user1.seed))
+    const { balance: factoryBalanceAfter } = await api.assets.fetchBalanceAddressAssetId(accounts.factory.address, lpAssetId)
     const { value: totalWithdrawalAmount } = await api.addresses.fetchDataKey(accounts.factory.address, '%s__withdrawal')
-    expect(totalWithdrawalAmount).to.equal(paymentAmount)
+    expect(totalWithdrawalAmount, 'invalid total withdrawal amount').to.equal(paymentAmount)
+    const expectedFactoryBalance = factoryBalanceBefore + paymentAmount
+    expect(factoryBalanceAfter, 'invalid factory balance').to.equal(expectedFactoryBalance)
   })
 })
