@@ -42,9 +42,7 @@ describe(`[${process.pid}] calculator: cancel withdraw`, () => {
     const { balance: userBalanceAfter } = await api.assets.fetchBalanceAddressAssetId(accounts.user1.address, lpAssetId)
     const { value: totalWithdrawalAmountAfter } = await api.addresses.fetchDataKey(accounts.factory.address, '%s__withdrawal')
     expect(totalWithdrawalAmountAfter, 'invalid total withdrawal amount').to.equal(0)
-    // price is 1
-    const lpAssetAmount = paymentAmount
-    const expectedUserBalance = userBalanceBefore + lpAssetAmount
+    const expectedUserBalance = userBalanceBefore + paymentAmount
     expect(userBalanceAfter, 'invalid user balance').to.equal(expectedUserBalance)
   })
 })
