@@ -30,6 +30,7 @@ describe(`[${process.pid}] calculator: cancel withdraw`, () => {
   })
 
   it('total withdrawal amount should be decreased', async () => {
+    const { balance: userBalanceBefore } = await api.assets.fetchBalanceAddressAssetId(accounts.user1.address, lpAssetId)
     const paymentAmount = 1e8
     const { value: totalWithdrawalAmountBefore } = await api.addresses.fetchDataKey(accounts.factory.address, '%s__withdrawal')
     expect(totalWithdrawalAmountBefore).to.equal(paymentAmount)
@@ -38,7 +39,12 @@ describe(`[${process.pid}] calculator: cancel withdraw`, () => {
       call: { function: 'cancelWithdraw', args: [{ type: 'string', value: withdrawTxId }] },
       chainId
     }, accounts.user1.seed))
+    const { balance: userBalanceAfter } = await api.assets.fetchBalanceAddressAssetId(accounts.user1.address, lpAssetId)
     const { value: totalWithdrawalAmountAfter } = await api.addresses.fetchDataKey(accounts.factory.address, '%s__withdrawal')
-    expect(totalWithdrawalAmountAfter).to.equal(0)
+    expect(totalWithdrawalAmountAfter, 'invalid total withdrawal amount').to.equal(0)
+    // price is 1
+    const lpAssetAmount = paymentAmount
+    const expectedUserBalance = userBalanceBefore + lpAssetAmount
+    expect(userBalanceAfter, 'invalid user balance').to.equal(expectedUserBalance)
   })
 })
