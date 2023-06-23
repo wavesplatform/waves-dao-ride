@@ -72,6 +72,8 @@ describe(`[${process.pid}] calculator: finalize`, () => {
       chainId
     }, accounts.user1.seed))
 
+    const { balance: factoryBalanceBefore } = await api.addresses.fetchBalance(accounts.factory.address)
+
     await broadcastAndWait(invokeScript({
       dApp: accounts.factory.address,
       call: {
@@ -87,10 +89,15 @@ describe(`[${process.pid}] calculator: finalize`, () => {
       chainId,
       additionalFee: 4e5
     }, daoSeed))
+
+    const { balance: factoryBalanceAfter } = await api.addresses.fetchBalance(accounts.factory.address)
+
     const [{ quantity }] = await api.assets.fetchDetails([lpAssetId])
     const { value: price } = await api.addresses.fetchDataKey(accounts.factory.address, '%s%d__price__1')
     const profit = newTreasuryVolumeInWaves
     const expectedPrice = Math.floor(profit * (scale8 - pwrManagersBonus) / quantity)
-    expect(price).to.equal(expectedPrice)
+    expect(price, 'invalid price').to.equal(expectedPrice)
+    const expectedFactoryBalance = factoryBalanceBefore + paymentAmount
+    expect(factoryBalanceAfter, 'invalid factory balance').to.equal(expectedFactoryBalance)
   })
 })
