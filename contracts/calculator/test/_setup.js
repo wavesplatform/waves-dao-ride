@@ -32,6 +32,7 @@ export const setup = async ({
     'factory',
     'calculator',
     'treasury',
+    'featureTreasury',
     'user1'
   ]
   const accounts = Object.fromEntries(names.map((item) => {
@@ -94,6 +95,7 @@ export const setup = async ({
     data: [
       { key: '%s__calculator', type: 'string', value: accounts.calculator.address },
       { key: '%s__treasury', type: 'string', value: daoAddress() },
+      { key: '%s__featureTreasury', type: 'string', value: accounts.featureTreasury.address },
       { key: '%s__lpAssetId', type: 'string', value: lpAssetId },
       { key: '%s__xtnAssetId', type: 'string', value: xtnAssetId },
       { key: '%s__nextBlockToProcess', type: 'integer', value: nextBlockToProcess },

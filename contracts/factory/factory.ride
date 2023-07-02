@@ -29,6 +29,12 @@ let calculatorAddressOption = match this.getString(keyCalculatorAddress()) {
 }
 let calculatorAddressOrFail = calculatorAddressOption.valueOrErrorMessage(wrapErr("invalid calculator address"))
 
+let treasuryAddressOption = match this.getString(keyTreasuryAddress()) {
+  case s: String => s.addressFromString()
+  case _: Unit => unit
+}
+let treasuryAddressOrFail = treasuryAddressOption.valueOrErrorMessage(wrapErr("invalid proxy treasury address"))
+
 func keyConfigAddress() = "%s__config"
 
 # config keys
@@ -129,6 +135,10 @@ func transferAsset(recepientBytes: ByteVector, amount: Int, assetId: ByteVector)
 @Callable(i)
 func transferWaves(recepientBytes: ByteVector, amount: Int) = 
   if (i.onlyCalculator()) then ([ScriptTransfer(Address(recepientBytes), amount, unit)], amount) else ([], unit)
+
+@Callable(i)
+func transferFromProxyTreasury(recipientBytes: ByteVector, rewardsAmount: Int) =
+  if (i.onlyCalculator()) then (nil, treasuryAddressOrFail.invoke("transferWaves", [recipientBytes, rewardsAmount], [])) else ([], unit)
 
 # finalize period
 @Callable(i)

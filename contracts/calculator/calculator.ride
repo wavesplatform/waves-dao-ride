@@ -33,6 +33,7 @@ func keyFactoryAddress() = ["%s", "factory"].makeString(SEP)
 func keyLpAssetId() = ["%s", "lpAssetId"].makeString(SEP)
 func keyXtnAssetId() = ["%s", "xtnAssetId"].makeString(SEP)
 func keyTreasuryAddress() = ["%s", "treasury"].makeString(SEP)
+func keyFeatureTreasuryAddress() = ["%s", "featureTreasury"].makeString(SEP)
 func keyInvested(assetId: ByteVector|Unit) = ["%s%s", "invested", assetIdToString(assetId)].makeString(SEP)
 func keyAvailable(userAddress: Address) = ["%s%s", "available", userAddress.toString()].makeString(SEP)
 func keyClaimed(userAddress: Address) = ["%s%s", "claimed", userAddress.toString()].makeString(SEP)
@@ -97,7 +98,16 @@ let treasuryAddressOption = match factoryAddressOption {
   }
   case _: Unit => unit
 }
-let treasuryAddressOrFail = treasuryAddressOption.valueOrErrorMessage(wrapErr("invalid treasury address"))
+let treasuryAddressOrFail = treasuryAddressOption.valueOrErrorMessage(wrapErr("invalid proxy treasury address"))
+
+let featureTreasuryAddressOption  = match factoryAddressOption {
+  case a: Address => match a.getString(keyFeatureTreasuryAddress()) {
+    case s: String => s.addressFromString()
+    case _: Unit => unit
+  }
+  case _: Unit => unit
+}
+let featureTreasuryAddressOrFail = featureTreasuryAddressOption.valueOrErrorMessage(wrapErr("invalid feature treasury address"))
 
 func onlyAddress(i: Invocation, address: Address) = {
   i.caller == address || throwErr("permission denied")
@@ -440,7 +450,7 @@ func processBlocks(userAddressBytes: ByteVector) = {
   let blockProcessingRewardByGenerator = blockProcessingReward / blocksProcessingBatchSize
   let blockProcessingRewardByGeneratorRemainder = blockProcessingReward - blockProcessingRewardByGenerator * blocksProcessingBatchSize
   
-  func map(acc: Int, inc: Int) = {
+  func map(acc: (Int, Int), inc: Int) = {
     if (inc >= blocksProcessingBatchSize) then {
       acc
     } else {
@@ -479,8 +489,8 @@ func processBlocks(userAddressBytes: ByteVector) = {
           available + lpAssetAmount
         ], [])
       ]
-
-      acc + lpAssetAmount
+      let (lpAssetAcc, rewardAcc) = acc
+      (lpAssetAcc + lpAssetAmount, rewardAcc + treasuryRewardOrFail)
     }
   }
 
@@ -490,7 +500,9 @@ func processBlocks(userAddressBytes: ByteVector) = {
     20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
     30, 31, 32, 33, 34, 35, 36, 37, 38, 39
   ]
-  strict lpAssetAmountTotal = FOLD<40>(list, 0, map)
+  strict (lpAssetAmountTotal, rewardAmountTotal) = FOLD<40>(list, (0, 0), map)
+
+  let rewardToFeatureTreasuryAmount = rewardAmountTotal - blockProcessingReward
 
   strict actions = [
     factoryAddressOrFail.invoke("transferWaves", [
@@ -502,6 +514,14 @@ func processBlocks(userAddressBytes: ByteVector) = {
     factoryAddressOrFail.invoke("integerEntry", [
       keyNextBlockToProcess(),
       nextBlockToProcess + blocksProcessingBatchSize
+    ], []),
+    factoryAddressOrFail.invoke("transferFromProxyTreasury", [
+      featureTreasuryAddressOrFail.bytes,
+      rewardToFeatureTreasuryAmount
+    ], []),
+    factoryAddressOrFail.invoke("transferFromProxyTreasury", [
+      factoryAddressOrFail.bytes,
+      blockProcessingReward
     ], [])
   ]
 

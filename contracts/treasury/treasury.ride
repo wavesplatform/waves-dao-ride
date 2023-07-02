@@ -24,6 +24,9 @@ func keyFullAdminVote(prefix: String, adminAddress: String) = makeString([prefix
 # Admin List key
 func keyAdminAddressList() = makeString(["%s", "adminAddressList"], SEP)
 
+# Factory address key
+func keyFactoryAddress() = makeString(["%s", "factory"], SEP)
+
 # Allowed TXID key
 func keyAllowedTxId() = makeString(["%s", "txId"], SEP)
 
@@ -37,6 +40,13 @@ let configAddressOption = match this.getString(keyConfigAddress()) {
   case _: Unit => unit
 }
 let configAddress = configAddressOption.valueOrErrorMessage(wrapErr("invalid config address"))
+
+let factoryAddressOption = match this.getString(keyFactoryAddress()) {
+  case s: String => s.addressFromString()
+  case _: Unit => unit
+}
+let factoryAddressOrFail = factoryAddressOption.valueOrErrorMessage(wrapErr("invalid factory address"))
+
 let votingResultContractOption = match configAddressOption {
   case a: Address => match a.getString(keyVotingResultAddress()) {
     case s: String => s.addressFromString()
@@ -45,6 +55,14 @@ let votingResultContractOption = match configAddressOption {
   case _: Unit => unit
 }
 let votingResultContract = votingResultContractOption.valueOrErrorMessage(wrapErr("invalid voting result address"))
+
+func onlyAddress(i: Invocation, address: Address) = {
+  i.caller == address || throwErr("permission denied")
+}
+
+func onlyFactory(i: Invocation) = {
+  onlyAddress(i, factoryAddressOrFail)
+}
 
 func getAdminVote(prefix: String, admin: String) = {
   let voteKey = keyFullAdminVote(prefix, admin)
@@ -113,6 +131,14 @@ func voteINTERNAL(
   } else {
     [ IntegerEntry(voteKey, 1) ]
   }
+}
+
+@Callable(i)
+func transferWaves(recipientBytes: ByteVector, amount: Int) = {
+  strict checkCaller = i.onlyFactory()
+  [
+    ScriptTransfer(Address(recipientBytes), amount, unit)
+  ]
 }
 
 # Vote for txId that is allowed in Verifier
