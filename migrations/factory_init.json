@@ -12,14 +12,19 @@
       "value": "3PGWhtvCSz1TRJhe3BJSrvQigrtKuyXsgma"
     },
     {
-      "key": "%s__treasury",
+      "key": "%s__proxyTreasury",
       "type": "string",
       "value": "3PEgG7eZHLFhcfsTSaYxgRhZsh4AxMvA4Ms"
     },
     {
+      "key": "%s__mainTreasury",
+      "type": "string",
+      "value": "3PEwRcYNAUtoFvKpBhKoiwajnZfdoDR6h4h"
+    },
+    {
       "key": "%s__featureTreasury",
       "type": "string",
-      "value": ""
+      "value": "3P7XaCYwKR7x4jLsZ4GwXK3PJZciYuX5DqA"
     },
     {
       "key": "%s__lpAssetId",

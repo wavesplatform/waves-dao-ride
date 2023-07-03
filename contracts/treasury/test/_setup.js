@@ -12,7 +12,7 @@ import {
 
 const nonceLength = 3
 const ridePath = 'contracts/treasury'
-const treasuryPath = format({ dir: ridePath, base: 'treasury.ride' })
+const treasuryPath = format({ dir: ridePath, base: 'proxy_treasury.ride' })
 
 export const setupAccounts = async () => {
   const nonce = wc.random(nonceLength, 'Buffer').toString('hex')

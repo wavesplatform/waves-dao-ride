@@ -31,8 +31,8 @@ func abs(n: Int) = {
 
 func keyFactoryAddress() = ["%s", "factory"].makeString(SEP)
 func keyLpAssetId() = ["%s", "lpAssetId"].makeString(SEP)
-func keyTreasuryAddress() = ["%s", "treasury"].makeString(SEP)
-func keyFeatureTreasuryAddress() = ["%s", "featureTreasury"].makeString(SEP)
+func keyProxyTreasuryAddress() = ["%s", "proxyTreasury"].makeString(SEP)
+func keyMainTreasuryAddress() = ["%s", "mainTreasury"].makeString(SEP)
 func keyInvested(assetId: ByteVector|Unit) = ["%s%s", "invested", assetIdToString(assetId)].makeString(SEP)
 func keyDonated(assetId: ByteVector|Unit) = ["%s%s", "donated", assetIdToString(assetId)].makeString(SEP)
 func keyAvailable(userAddress: Address) = ["%s%s", "available", userAddress.toString()].makeString(SEP)
@@ -82,17 +82,17 @@ let lpAssetIdOption = match factoryAddressOption {
 }
 let lpAssetIdOrFail = lpAssetIdOption.valueOrErrorMessage(wrapErr("invalid lpAssetId"))
 
-let treasuryAddressOption = match factoryAddressOption {
-  case a: Address => match a.getString(keyTreasuryAddress()) {
+let proxyTreasuryAddressOption = match factoryAddressOption {
+  case a: Address => match a.getString(keyProxyTreasuryAddress()) {
     case s: String => s.addressFromString()
     case _: Unit => unit
   }
   case _: Unit => unit
 }
-let treasuryAddressOrFail = treasuryAddressOption.valueOrErrorMessage(wrapErr("invalid proxy treasury address"))
+let proxyTreasuryAddressOrFail = proxyTreasuryAddressOption.valueOrErrorMessage(wrapErr("invalid proxy treasury address"))
 
 let featureTreasuryAddressOption  = match factoryAddressOption {
-  case a: Address => match a.getString(keyFeatureTreasuryAddress()) {
+  case a: Address => match a.getString(keyMainTreasuryAddress()) {
     case s: String => s.addressFromString()
     case _: Unit => unit
   }
@@ -433,7 +433,7 @@ func processBlocks(userAddressBytes: ByteVector) = {
     } else {
       let targetBlockHeight = nextBlockToProcess + inc
       let targetBlockInfo = blockInfoByHeight(targetBlockHeight).valueOrErrorMessage(wrapErr("invalid block info"))
-      let treasuryRewardOrFail = rewardForOption(targetBlockInfo.rewards, treasuryAddressOrFail)
+      let treasuryRewardOrFail = rewardForOption(targetBlockInfo.rewards, proxyTreasuryAddressOrFail)
         .valueOrErrorMessage(wrapErr("invalid treasury reward for height " + targetBlockHeight.toString()))
       let generator = targetBlockInfo.generator
       let available = factoryAddressOrFail.getInteger(keyAvailable(generator)).valueOrElse(0)
@@ -479,7 +479,7 @@ func processBlocks(userAddressBytes: ByteVector) = {
   ]
   strict (lpAssetAmountTotal, rewardAmountTotal) = FOLD<40>(list, (0, 0), map)
 
-  let rewardToFeatureTreasuryAmount = rewardAmountTotal - blockProcessingReward
+  let rewardToMainTreasuryAmount = rewardAmountTotal - blockProcessingReward
 
   strict actions = [
     factoryAddressOrFail.invoke("transferWaves", [
@@ -494,7 +494,7 @@ func processBlocks(userAddressBytes: ByteVector) = {
     ], []),
     factoryAddressOrFail.invoke("transferFromProxyTreasury", [
       featureTreasuryAddressOrFail.bytes,
-      rewardToFeatureTreasuryAmount
+      rewardToMainTreasuryAmount
     ], []),
     factoryAddressOrFail.invoke("transferFromProxyTreasury", [
       factoryAddressOrFail.bytes,

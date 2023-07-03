@@ -3,7 +3,7 @@
 {-# SCRIPT_TYPE ACCOUNT #-}
 
 let SEP = "__"
-let contractFilename = "treasury.ride"
+let contractFilename = "proxy_treasury.ride"
 let ADMIN_LIST_SIZE = 5
 let QUORUM = 3
 let TXID_BYTES_LENGTH = 32
