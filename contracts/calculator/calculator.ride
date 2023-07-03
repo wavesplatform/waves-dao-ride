@@ -31,10 +31,10 @@ func abs(n: Int) = {
 
 func keyFactoryAddress() = ["%s", "factory"].makeString(SEP)
 func keyLpAssetId() = ["%s", "lpAssetId"].makeString(SEP)
-func keyXtnAssetId() = ["%s", "xtnAssetId"].makeString(SEP)
 func keyTreasuryAddress() = ["%s", "treasury"].makeString(SEP)
 func keyFeatureTreasuryAddress() = ["%s", "featureTreasury"].makeString(SEP)
 func keyInvested(assetId: ByteVector|Unit) = ["%s%s", "invested", assetIdToString(assetId)].makeString(SEP)
+func keyDonated(assetId: ByteVector|Unit) = ["%s%s", "donated", assetIdToString(assetId)].makeString(SEP)
 func keyAvailable(userAddress: Address) = ["%s%s", "available", userAddress.toString()].makeString(SEP)
 func keyClaimed(userAddress: Address) = ["%s%s", "claimed", userAddress.toString()].makeString(SEP)
 func keyCurrentPeriod() = ["%s", "currentPeriod"].makeString(SEP)
@@ -81,15 +81,6 @@ let lpAssetIdOption = match factoryAddressOption {
   case _: Unit => unit
 }
 let lpAssetIdOrFail = lpAssetIdOption.valueOrErrorMessage(wrapErr("invalid lpAssetId"))
-
-let xtnAssetIdOption = match factoryAddressOption {
-  case a: Address => match a.getString(keyXtnAssetId()) {
-    case s: String => s.fromBase58String()
-    case _: Unit => unit
-  }
-  case _: Unit => unit
-}
-let xtnAssetIdOrFail = xtnAssetIdOption.valueOrErrorMessage(wrapErr("invalid xtnAssetId"))
 
 let treasuryAddressOption = match factoryAddressOption {
   case a: Address => match a.getString(keyTreasuryAddress()) {
@@ -160,7 +151,6 @@ func claimLP(userAddressBytes: ByteVector) = {
 func finalize(
   userAddressBytes: ByteVector,
   newTreasuryVolumeInWaves: Int,
-  xtnPrice: Int,
   pwrManagersBonus: Int, # 0..1×10⁸
   treasuryVolumeDiffAllocationCoef: Int # -1..1×10⁸
 ) = {
@@ -184,41 +174,29 @@ func finalize(
   let periodEndHeight = currentStartHeight + periodLength - 1
 
   strict checks = [
-    i.originCaller == treasuryAddressOrFail || throwErr("permission denied"),
+    i.originCaller == featureTreasuryAddressOrFail || throwErr("permission denied"),
     nextBlockToProcess > periodEndHeight || throwErr("unprocessed blocks"),
     newTreasuryVolumeInWaves >= 0 || throwErr("invalid new treasury volume"),
-    xtnPrice >= 0 || throwErr("invalid XTN price"),
     pwrManagersBonus >= 0 && pwrManagersBonus <= SCALE8 || throwErr("invalid PWR managers bonus"),
     treasuryVolumeDiffAllocationCoef >= -SCALE8 && treasuryVolumeDiffAllocationCoef <= SCALE8
       || throwErr("invalid treasury volume diff allocation coefficient")
   ]
 
-  let investedXtnAmount = factoryAddressOrFail.getInteger(
-    keyInvested(xtnAssetIdOrFail)
+  let donatedWavesAmount = factoryAddressOrFail.getInteger(
+    keyDonated(unit)
   ).valueOrElse(0)
   let investedWavesAmount = factoryAddressOrFail.getInteger(
     keyInvested(unit)
   ).valueOrElse(0)
 
-  # wavesDecimalsMultiplier = 10⁸
-  # xtnDecimalsMultiplier = 10⁶
-  # xtnPriceMultiplier = 10⁸
-  # investedXtnAmountInWaves
-  #   = investedXtnAmount × xtnPrice × wavesDecimalsMultiplier / (xtnDecimalsMultiplier × xtnPriceMultiplier)
-  #   = investedXtnAmount × xtnPrice / xtnDecimalsMultiplier
-  let investedXtnAmountInWaves = fraction(
-    investedXtnAmount,
-    xtnPrice,
-    SCALE6
-  )
-  let currentTreasuryVolumeInWaves = investedXtnAmountInWaves + investedWavesAmount
+  let currentTreasuryVolumeInWaves = donatedWavesAmount + investedWavesAmount
   let profitRaw = newTreasuryVolumeInWaves - currentTreasuryVolumeInWaves
   let pwrManagersBonusAmount = if (profitRaw > 0)
     then fraction(profitRaw, pwrManagersBonus, SCALE8)
     else 0
   let profit = profitRaw - pwrManagersBonusAmount
   let donationPart = if (currentTreasuryVolumeInWaves > 0)
-    then fraction(investedXtnAmountInWaves, SCALE8, currentTreasuryVolumeInWaves)
+    then fraction(donatedWavesAmount, SCALE8, currentTreasuryVolumeInWaves)
     else 0
   let donationProfitPartRaw = fraction(profit, donationPart, SCALE8)
   let investmentProfitPartRaw = profit - donationProfitPartRaw
@@ -236,7 +214,6 @@ func finalize(
   let donationProfitPart = donationProfitPartRaw - amountToInvestment + amountToDonation
   let investmentProfitPart = investmentProfitPartRaw - amountToDonation + amountToInvestment
   let investedWavesAmountNew = investedWavesAmount + investmentProfitPart
-  let investedXtnAmountNew = fraction(investedXtnAmountInWaves + donationProfitPart, SCALE6, xtnPrice)
 
   let newPeriod = currentPeriodOrFail + 1
   # calculate new price
@@ -295,7 +272,7 @@ func invest(userAddressBytes: ByteVector) = {
   let invested = factoryAddressOrFail.getInteger(keyInvested(unit)).valueOrElse(0)
   
   let actions = [
-    ScriptTransfer(treasuryAddressOrFail, paymentAmount, paymentAssetId)
+    ScriptTransfer(featureTreasuryAddressOrFail, paymentAmount, paymentAssetId)
   ]
 
   let factoryActions = [

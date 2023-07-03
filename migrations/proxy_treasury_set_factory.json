@@ -1,0 +1,15 @@
+{
+  "senderPublicKey": "GDPfYHA6NUZCmin3J7LWZhCvSjBcna8HebyvQyrw17v",
+  "data": [
+    {
+      "key": "%s__factory",
+      "type": "string",
+      "value": "3PJVm7xLPabmYohbnvdgGDYHMwnZxF2x18m"
+    }
+  ],
+  "proofs": [],
+  "fee": 500000,
+  "type": 12,
+  "version": 2,
+  "chainId": 87
+}

@@ -17,6 +17,11 @@
       "value": "3PEgG7eZHLFhcfsTSaYxgRhZsh4AxMvA4Ms"
     },
     {
+      "key": "%s__featureTreasury",
+      "type": "string",
+      "value": ""
+    },
+    {
       "key": "%s__lpAssetId",
       "type": "string",
       "value": "HYogWffUjS8Uw4bYA1Dn3qrGmJerMqkf139aJcHhk8yq"
@@ -57,9 +62,9 @@
       "value": 122581754945
     },
     {
-      "key": "%s%s__invested__DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p",
+      "key": "%s%s__donated__WAVES",
       "type": "integer",
-      "value": 19600000000000
+      "value": 0
     },
     {
       "key": "%s%s__available__3P2EDoG2nxrXGwcGT8RkGhWJje61ZMCuXr3",

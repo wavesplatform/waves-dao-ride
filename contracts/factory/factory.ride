@@ -144,7 +144,6 @@ func transferFromProxyTreasury(recipientBytes: ByteVector, rewardsAmount: Int) =
 @Callable(i)
 func finalize(
   newTreasuryVolumeInWaves: Int,
-  xtnPrice: Int,
   pwrManagersBonus: Int,
   treasuryVolumeDiffAllocationCoef: Int
 ) = {
@@ -155,7 +154,6 @@ func finalize(
       [
         i.caller.bytes,
         newTreasuryVolumeInWaves,
-        xtnPrice,
         pwrManagersBonus,
         treasuryVolumeDiffAllocationCoef
       ],
