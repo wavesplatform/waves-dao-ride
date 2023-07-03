@@ -151,7 +151,7 @@ func claimLP(userAddressBytes: ByteVector) = {
 func finalize(
   userAddressBytes: ByteVector,
   newTreasuryVolumeInWaves: Int,
-  pwrManagersBonus: Int, # 0..1×10⁸
+  pwrManagersBonusInWaves: Int,
   treasuryVolumeDiffAllocationCoef: Int # -1..1×10⁸
 ) = {
   strict checkCaller = i.onlyFactory()
@@ -177,7 +177,7 @@ func finalize(
     i.originCaller == featureTreasuryAddressOrFail || throwErr("permission denied"),
     nextBlockToProcess > periodEndHeight || throwErr("unprocessed blocks"),
     newTreasuryVolumeInWaves >= 0 || throwErr("invalid new treasury volume"),
-    pwrManagersBonus >= 0 && pwrManagersBonus <= SCALE8 || throwErr("invalid PWR managers bonus"),
+    pwrManagersBonusInWaves >= 0 || throwErr("invalid PWR managers bonus"),
     treasuryVolumeDiffAllocationCoef >= -SCALE8 && treasuryVolumeDiffAllocationCoef <= SCALE8
       || throwErr("invalid treasury volume diff allocation coefficient")
   ]
@@ -191,8 +191,8 @@ func finalize(
 
   let currentTreasuryVolumeInWaves = donatedWavesAmount + investedWavesAmount
   let profitRaw = newTreasuryVolumeInWaves - currentTreasuryVolumeInWaves
-  let pwrManagersBonusAmount = if (profitRaw > 0)
-    then fraction(profitRaw, pwrManagersBonus, SCALE8)
+  let pwrManagersBonusAmount = if (profitRaw > 0 && pwrManagersBonusInWaves <= profitRaw)
+    then pwrManagersBonusInWaves
     else 0
   let profit = profitRaw - pwrManagersBonusAmount
   let donationPart = if (currentTreasuryVolumeInWaves > 0)

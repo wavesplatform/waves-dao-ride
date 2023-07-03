@@ -9,7 +9,7 @@ import { format } from 'path'
 import { table, getBorderCharacters } from 'table'
 
 import {
-  chainId, broadcastAndWait, baseSeed, setScriptFromFile, daoAddress
+  chainId, broadcastAndWait, baseSeed, setScriptFromFile, daoAddress, daoSeed
 } from '../../../utils/api.js'
 
 const nonceLength = 3
@@ -24,7 +24,7 @@ export const setup = async ({
   currentPeriod = 0,
   price = 100000000,
   period = 0,
-  investedXtnAmount = 0,
+  donatedWavesAmount = 0,
   investedWavesAmount = 0
 } = {}) => {
   const nonce = wc.random(nonceLength, 'Buffer').toString('hex')
@@ -93,11 +93,18 @@ export const setup = async ({
   await broadcastAndWait(data({
     additionalFee: 4e5,
     data: [
+      { key: '%s__factory', type: 'string', value: accounts.factory.address }
+    ],
+    chainId
+  }, daoSeed))
+
+  await broadcastAndWait(data({
+    additionalFee: 4e5,
+    data: [
       { key: '%s__calculator', type: 'string', value: accounts.calculator.address },
       { key: '%s__treasury', type: 'string', value: daoAddress() },
       { key: '%s__featureTreasury', type: 'string', value: accounts.featureTreasury.address },
       { key: '%s__lpAssetId', type: 'string', value: lpAssetId },
-      { key: '%s__xtnAssetId', type: 'string', value: xtnAssetId },
       { key: '%s__nextBlockToProcess', type: 'integer', value: nextBlockToProcess },
       { key: '%s__currentPeriod', type: 'integer', value: currentPeriod },
       { key: `%s%d__startHeight__${period}`, type: 'integer', value: nextBlockToProcess },
@@ -105,7 +112,7 @@ export const setup = async ({
       { key: '%s__periodLength', type: 'integer', value: periodLength },
       { key: '%s__blockProcessingReward', type: 'integer', value: blockProcessingReward },
       { key: '%s%s__invested__WAVES', type: 'integer', value: investedWavesAmount },
-      { key: `%s%s__invested__${xtnAssetId}`, type: 'integer', value: investedXtnAmount }
+      { key: '%s%s__donated__WAVES', type: 'integer', value: donatedWavesAmount }
     ],
     chainId
   }, accounts.factory.seed))

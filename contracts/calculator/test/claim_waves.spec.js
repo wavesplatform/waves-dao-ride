@@ -1,6 +1,6 @@
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
-import { api, chainId, broadcastAndWait, daoSeed } from '../../../utils/api.js'
+import { api, chainId, broadcastAndWait } from '../../../utils/api.js'
 import { setup } from './_setup.js'
 import { invokeScript } from '@waves/waves-transactions'
 
@@ -47,9 +47,8 @@ describe(`[${process.pid}] calculator: claim waves`, () => {
     }, accounts.user1.seed))
 
     const finalizePaymentAmount = 100e8
-    const newTreasuryVolumeInWaves = 1000 * 1e8
-    const xtnPrice = 0.05 * 1e8
-    const pwrManagersBonus = 0.2 * 1e8
+    const newTreasuryVolumeInWaves = 1100 * 1e8
+    const pwrManagersBonusinWaves = 100 * 1e8
     const treasuryVolumeDiffAllocationCoef = 0
     const [{ quantity }] = await api.assets.fetchDetails([lpAssetId])
     await broadcastAndWait(invokeScript({
@@ -58,15 +57,14 @@ describe(`[${process.pid}] calculator: claim waves`, () => {
         function: 'finalize',
         args: [
           { type: 'integer', value: newTreasuryVolumeInWaves },
-          { type: 'integer', value: xtnPrice },
-          { type: 'integer', value: pwrManagersBonus },
+          { type: 'integer', value: pwrManagersBonusinWaves },
           { type: 'integer', value: treasuryVolumeDiffAllocationCoef }
         ]
       },
       payment: [{ assetId: null, amount: finalizePaymentAmount }],
       chainId,
       additionalFee: 4e5
-    }, daoSeed))
+    }, accounts.featureTreasury.seed))
 
     const { stateChanges } = await broadcastAndWait(invokeScript({
       dApp: accounts.factory.address,
@@ -83,7 +81,7 @@ describe(`[${process.pid}] calculator: claim waves`, () => {
 
     const { value: price } = await api.addresses.fetchDataKey(accounts.factory.address, '%s%d__price__1')
     const profitRaw = newTreasuryVolumeInWaves - investedWavesAmount
-    const profit = profitRaw - profitRaw * pwrManagersBonus / scale8
+    const profit = profitRaw - pwrManagersBonusinWaves
     const expectedPrice = Math.floor((investedWavesAmount + profit) * scale8 / quantity)
     expect(price).to.equal(expectedPrice)
     expect(transfer).to.deep.equal({
