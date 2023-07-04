@@ -5,6 +5,14 @@
       "key": "%s__factory",
       "type": "string",
       "value": "3PJVm7xLPabmYohbnvdgGDYHMwnZxF2x18m"
+    },
+    {
+      "key": "%s__adminAddressList",
+      "value": null
+    },
+    {
+      "key": "%s__config",
+      "value": null
     }
   ],
   "proofs": [],
