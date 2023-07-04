@@ -3,12 +3,14 @@
 | key                           | type     |
 | :---------------------------- | :------- |
 | `%s__calculator`              | `String` |
-| `%s__treasury`                | `String` |
+| `%s__proxyTreasury`           | `String` |
+| `%s__mainTreasury`            | `String` |
 | `%s__config`                  | `String` |
 | `%s__lpAssetId`               | `String` |
-| `%s__xtnAssetId`              | `String` |
 | `%s__currentPeriod`           | `Int`    |
 | `%s__periodLength`            | `Int`    |
+| `%s%s__invested__WAVES`       | `Int`    |
+| `%s%s__donated__WAVES`        | `Int`    |
 | `%s%d__startHeight__<period>` | `Int`    |
 | `%s%d__price__<period>`       | `Int`    |
 | `%s__nextBlockToProcess`      | `Int`    |

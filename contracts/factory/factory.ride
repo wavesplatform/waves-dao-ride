@@ -13,8 +13,95 @@ func throwErr(s: String) = {
   throw(wrapErr(s))
 }
 
+######################
+# MULTISIG FUNCTIONS #
+######################
+let ADMIN_LIST_SIZE = 5
+let QUORUM = 3
+let TXID_BYTES_LENGTH = 32
+
+func keyAllowedTxIdVotePrefix(txId: String) = makeString(["%s%s%s", "allowTxId", txId], SEP)
+# Make Admin vote key 
+func keyFullAdminVote(prefix: String, adminAddress: String) = makeString([prefix, adminAddress], SEP)
+# Admin List key
+func keyAdminAddressList() = makeString(["%s", "adminAddressList"], SEP)
+# Allowed TXID key
+func keyAllowedTxId() = makeString(["%s", "txId"], SEP)
+
+func getAdminVote(prefix: String, admin: String) = {
+  let voteKey = keyFullAdminVote(prefix, admin)
+  getInteger(voteKey).valueOrElse(0)
+}
+
+func getAdminsList() = {
+  match (this.getString(keyAdminAddressList())) {
+    case s:String => s.split(SEP)
+    case _ => []
+  }
+}
+
+func isInAdminList(address: String) = {
+  getAdminsList().containsElement(address)
+}
+
+# Generate List of keys with same prefix for all admins
+func genVotesKeysHelper(a: (List[String], String), adminAddress: String) = {
+  let (result, prefix) = a
+  (result :+ keyFullAdminVote(prefix, adminAddress), prefix)
+}
+func genVotesKeys(keyPrefix: String) = {
+  let adminList = keyAdminAddressList()
+  let (result, prefix) = FOLD<5>(getAdminsList(), ([], keyPrefix), genVotesKeysHelper)
+  result
+}
+
+# Count all votes for Prefix
+func countVotesHelper(result: Int, voteKey: String) = {
+  result + getInteger(voteKey).valueOrElse(0)
+}
+func countVotes(prefix: String) = {
+  let votes = genVotesKeys(prefix)
+  FOLD<5>(votes, 0, countVotesHelper)
+}
+
+# Generate DeleteEntry for all votes with Prefix
+func clearVotesHelper(result: List[DeleteEntry], key: String) = {
+  result :+ DeleteEntry(key) 
+}
+func getClearVoteEntries(prefix: String) = {
+  let votes = genVotesKeys(prefix)
+  FOLD<5>(votes, [], clearVotesHelper)
+}
+
+func voteINTERNAL(
+  callerAddressString: String, 
+  keyPrefix: String, 
+  minVotes: Int, 
+  voteResult: List[StringEntry|IntegerEntry|DeleteEntry]
+) = {
+  let voteKey = keyFullAdminVote(keyPrefix, callerAddressString)
+  let adminCurrentVote = getAdminVote(keyPrefix, callerAddressString)
+
+  strict err = if (!isInAdminList(callerAddressString)) then {
+    throwErr("Address: " + callerAddressString + " not in Admin list")
+  } else if (adminCurrentVote == 1) then {
+    throwErr(voteKey + " you already voted")
+  } else { unit }
+
+  let votes = countVotes(keyPrefix)
+  if (votes + 1 >= minVotes) then {
+    let clearVoteEntries = getClearVoteEntries(keyPrefix)
+    clearVoteEntries ++ voteResult
+  } else {
+    [ IntegerEntry(voteKey, 1) ]
+  }
+}
+##########################
+# MULTISIG FUNCTIONS END #
+##########################
+
 func keyCalculatorAddress() = "%s__calculator"
-func keyTreasuryAddress() = "%s__treasury" # 3PEgG7eZHLFhcfsTSaYxgRhZsh4AxMvA4Ms
+func keyProxyTreasuryAddress() = "%s__proxyTreasury" # 3PEgG7eZHLFhcfsTSaYxgRhZsh4AxMvA4Ms
 func keyChildAddress() = "%s__child" # 3PEwRcYNAUtoFvKpBhKoiwajnZfdoDR6h4h
 # 0.005 waves to compensate the cost of the transaction
 func keyBlockProcessingReward() = "%s__blockProcessingReward"
@@ -28,6 +115,12 @@ let calculatorAddressOption = match this.getString(keyCalculatorAddress()) {
   case _: Unit => unit
 }
 let calculatorAddressOrFail = calculatorAddressOption.valueOrErrorMessage(wrapErr("invalid calculator address"))
+
+let proxyTreasuryAddressOption = match this.getString(keyProxyTreasuryAddress()) {
+  case s: String => s.addressFromString()
+  case _: Unit => unit
+}
+let proxyTreasuryAddressOrFail = proxyTreasuryAddressOption.valueOrErrorMessage(wrapErr("invalid proxy treasury address"))
 
 func keyConfigAddress() = "%s__config"
 
@@ -130,12 +223,15 @@ func transferAsset(recepientBytes: ByteVector, amount: Int, assetId: ByteVector)
 func transferWaves(recepientBytes: ByteVector, amount: Int) = 
   if (i.onlyCalculator()) then ([ScriptTransfer(Address(recepientBytes), amount, unit)], amount) else ([], unit)
 
+@Callable(i)
+func transferFromProxyTreasury(recipientBytes: ByteVector, rewardsAmount: Int) =
+  if (i.onlyCalculator()) then (nil, proxyTreasuryAddressOrFail.invoke("transferWaves", [recipientBytes, rewardsAmount], [])) else ([], unit)
+
 # finalize period
 @Callable(i)
 func finalize(
   newTreasuryVolumeInWaves: Int,
-  xtnPrice: Int,
-  pwrManagersBonus: Int,
+  pwrManagersBonusInWaves: Int,
   treasuryVolumeDiffAllocationCoef: Int
 ) = {
   (
@@ -145,8 +241,7 @@ func finalize(
       [
         i.caller.bytes,
         newTreasuryVolumeInWaves,
-        xtnPrice,
-        pwrManagersBonus,
+        pwrManagersBonusInWaves,
         treasuryVolumeDiffAllocationCoef
       ],
       i.payments
@@ -178,11 +273,42 @@ func cancelWithdraw(txIdStr: String) =
 @Callable(i)
 func processBlocks() = (nil, calculatorAddressOrFail.reentrantInvoke("processBlocks", [i.caller.bytes], i.payments))
 
+#####################
+# MUTISIG FUNCTIONS #
+#####################
+# Vote for txId that is allowed in Verifier
+@Callable(i)
+func voteForTxId(txId: String) = {
+  let callerAddressString = toBase58String(i.caller.bytes)
+  let keyPrefix = keyAllowedTxIdVotePrefix(txId)
+  let result = [ StringEntry(keyAllowedTxId(), txId) ]
+  let allowedTxIdOption = this.getString(keyAllowedTxId())
+  
+  strict err = [
+    txId.fromBase58String().size() == TXID_BYTES_LENGTH || throwErr(txId + " is not valid txId"),
+    allowedTxIdOption == unit || allowedTxIdOption.value() != txId || throwErr(txId + " is already allowed")
+  ]
+
+  voteINTERNAL(callerAddressString, keyPrefix, QUORUM, result)
+}
+#########################
+# MUTISIG FUNCTIONS END #
+#########################
+
 @Verifier(tx)
 func verify() = {
-  let byProposal = votingResultAddressOrFail.getBoolean(keyProposalAllowBroadcast(this, tx.id)).valueOrElse(false)
-  let byOwner = sigVerify(tx.bodyBytes, tx.proofs[0], tx.senderPublicKey)
-  if (votingResultAddressOption != unit) then {
-    byProposal || byOwner
-  } else byOwner
+  let byProposal = {
+    match (votingResultAddressOption) {
+        case proposalAddress:Address => proposalAddress.getBoolean(keyProposalAllowBroadcast(this, tx.id)).valueOrElse(false)
+        case _ => false
+      }
+  }
+  let byAdmins = (tx.id == this.getString(keyAllowedTxId()).valueOrElse("").fromBase58String())
+  let byOwner = (if (getAdminsList().size() >= QUORUM) then {
+      false
+    } else {
+      sigVerify(tx.bodyBytes, tx.proofs[0], tx.senderPublicKey)
+  })
+
+  byProposal || byAdmins || byOwner
 }

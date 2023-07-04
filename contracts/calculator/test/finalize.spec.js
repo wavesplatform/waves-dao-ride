@@ -1,6 +1,6 @@
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
-import { api, chainId, broadcastAndWait, daoSeed } from '../../../utils/api.js'
+import { api, chainId, broadcastAndWait } from '../../../utils/api.js'
 import { setup } from './_setup.js'
 import { invokeScript } from '@waves/waves-transactions'
 
@@ -12,34 +12,35 @@ const scale8 = 1e8
 describe(`[${process.pid}] calculator: finalize`, () => {
   let accounts, lpAssetId
   const paymentAmount = 1
-  const newTreasuryVolumeInWaves = 1000 * 1e8
-  const xtnPrice = 0.05 * 1e8
-  const pwrManagersBonus = 0.2 * 1e8
-  const treasuryVolumeDiffAllocationCoef = 0
+  const periodLength = 1
+  const periodReward = 2 * 1e8
+  const newTreasuryVolumeInWaves = 10000 * 1e8
+  const pwrManagersBonusInWaves = 700 * 1e8
+  const treasuryVolumeDiffAllocationCoef = -0.5
+  const initialInvestInWaves = 5000 * 1e8
+  const initialDonatedInWaves = 3000 * 1e8
+  const blockProcessingReward = 0.015 * 1e8
 
   before(async () => {
     const { height } = await api.blocks.fetchHeight();
     ({ accounts, lpAssetId } = await setup({
       nextBlockToProcess: height,
-      periodLength: 1
+      periodLength,
+      blockProcessingReward,
+      investedWavesAmount: initialInvestInWaves,
+      donatedWavesAmount: initialDonatedInWaves
     }))
   })
 
   it('only factory can call finalize', async () => {
-    const newTreasuryVolumeInWaves = 1000 * 1e8
-    const xtnPrice = 0.05 * 1e8
-    const pwrManagersBonus = 0.2 * 1e8
-    const treasuryVolumeDiffAllocationCoef = 0
-
     return expect(broadcastAndWait(invokeScript({
       dApp: accounts.factory.address,
       call: {
         function: 'finalize',
         args: [
           { type: 'integer', value: newTreasuryVolumeInWaves },
-          { type: 'integer', value: xtnPrice },
-          { type: 'integer', value: pwrManagersBonus },
-          { type: 'integer', value: treasuryVolumeDiffAllocationCoef }
+          { type: 'integer', value: pwrManagersBonusInWaves },
+          { type: 'integer', value: treasuryVolumeDiffAllocationCoef * scale8 }
         ]
       },
       payment: [],
@@ -54,15 +55,14 @@ describe(`[${process.pid}] calculator: finalize`, () => {
         function: 'finalize',
         args: [
           { type: 'integer', value: newTreasuryVolumeInWaves },
-          { type: 'integer', value: xtnPrice },
-          { type: 'integer', value: pwrManagersBonus },
-          { type: 'integer', value: treasuryVolumeDiffAllocationCoef }
+          { type: 'integer', value: pwrManagersBonusInWaves },
+          { type: 'integer', value: treasuryVolumeDiffAllocationCoef * scale8 }
         ]
       },
       payment: [{ assetId: null, amount: paymentAmount }],
       chainId,
       additionalFee: 4e5
-    }, daoSeed))).to.be.rejectedWith('unprocessed blocks')
+    }, accounts.mainTreasury.seed))).to.be.rejectedWith('unprocessed blocks')
   })
 
   it('period should be finalized', async () => {
@@ -80,22 +80,40 @@ describe(`[${process.pid}] calculator: finalize`, () => {
         function: 'finalize',
         args: [
           { type: 'integer', value: newTreasuryVolumeInWaves },
-          { type: 'integer', value: xtnPrice },
-          { type: 'integer', value: pwrManagersBonus },
-          { type: 'integer', value: treasuryVolumeDiffAllocationCoef }
+          { type: 'integer', value: pwrManagersBonusInWaves },
+          { type: 'integer', value: treasuryVolumeDiffAllocationCoef * scale8 }
         ]
       },
       payment: [{ assetId: null, amount: paymentAmount }],
       chainId,
       additionalFee: 4e5
-    }, daoSeed))
+    }, accounts.mainTreasury.seed))
 
     const { balance: factoryBalanceAfter } = await api.addresses.fetchBalance(accounts.factory.address)
 
     const [{ quantity }] = await api.assets.fetchDetails([lpAssetId])
     const { value: price } = await api.addresses.fetchDataKey(accounts.factory.address, '%s%d__price__1')
-    const profit = newTreasuryVolumeInWaves
-    const expectedPrice = Math.floor(profit * (scale8 - pwrManagersBonus) / quantity)
+
+    const totalReward = periodLength * periodReward - blockProcessingReward
+    const totalInvestAmount = initialInvestInWaves + totalReward
+    const totalInvestAndDonation = initialDonatedInWaves + totalInvestAmount
+    const profitOrLoss = newTreasuryVolumeInWaves - totalInvestAndDonation
+    const rawProfit = profitOrLoss - (pwrManagersBonusInWaves <= profitOrLoss ? pwrManagersBonusInWaves : 0)
+
+    const donationPart = initialDonatedInWaves / totalInvestAndDonation
+    const investPart = totalInvestAmount / totalInvestAndDonation
+    const donatedRawProfit = rawProfit * donationPart
+    const investRawProfit = rawProfit * investPart
+    let investProfit = investRawProfit
+    if (treasuryVolumeDiffAllocationCoef < 0) {
+      investProfit = investRawProfit * (1 - Math.abs(treasuryVolumeDiffAllocationCoef))
+    }
+    if (treasuryVolumeDiffAllocationCoef > 0) {
+      investProfit = investRawProfit + donatedRawProfit * Math.abs(treasuryVolumeDiffAllocationCoef)
+    }
+
+    const expectedPrice = Math.floor((totalInvestAmount + investProfit) * scale8 / quantity)
+    console.log(price / scale8, expectedPrice / scale8)
     expect(price, 'invalid price').to.equal(expectedPrice)
     const expectedFactoryBalance = factoryBalanceBefore + paymentAmount
     expect(factoryBalanceAfter, 'invalid factory balance').to.equal(expectedFactoryBalance)

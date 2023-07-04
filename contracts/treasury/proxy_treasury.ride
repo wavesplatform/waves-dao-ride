@@ -1,0 +1,61 @@
+{-# STDLIB_VERSION 6 #-}
+{-# CONTENT_TYPE DAPP #-}
+{-# SCRIPT_TYPE ACCOUNT #-}
+
+let SEP = "__"
+let contractFilename = "proxy_treasury.ride"
+
+func wrapErr(s: String) = {
+  contractFilename + ": " + s
+}
+
+func throwErr(s: String) = {
+  throw(wrapErr(s))
+}
+
+func keyFactoryAddress() = makeString(["%s", "factory"], SEP)
+func keyManagerPublicKey() = makeString(["%s", "managerPublicKey"], SEP)
+
+let factoryAddressOption = match this.getString(keyFactoryAddress()) {
+  case s: String => s.addressFromString()
+  case _: Unit => unit
+}
+let factoryAddressOrFail = factoryAddressOption.valueOrErrorMessage(wrapErr("invalid factory address"))
+
+func onlyAddress(i: Invocation, address: Address) = {
+  i.caller == address || throwErr("permission denied")
+}
+
+func onlyFactory(i: Invocation) = {
+  onlyAddress(i, factoryAddressOrFail)
+}
+
+func getManagerPublicKeyOrUnit() = {
+  match (factoryAddressOption) {
+      case fa:Address => {
+        match (fa.getString(keyManagerPublicKey())) {
+            case pub:String => pub.fromBase58String()
+            case _ => unit
+          }
+      }
+      case _ => unit
+    }
+}
+
+@Callable(i)
+func transferWaves(recipientBytes: ByteVector, amount: Int) = {
+  strict checkCaller = i.onlyFactory()
+  [
+    ScriptTransfer(Address(recipientBytes), amount, unit)
+  ]
+}
+
+@Verifier(tx)
+func verify() = {
+  let publicKey = match (getManagerPublicKeyOrUnit()) {
+      case pub:ByteVector => pub 
+      case _ => tx.senderPublicKey
+  }
+
+  sigVerify(tx.bodyBytes, tx.proofs[0], publicKey)
+}

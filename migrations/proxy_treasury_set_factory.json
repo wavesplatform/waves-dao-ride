@@ -1,5 +1,5 @@
 {
-  "senderPublicKey": "5bMfubGtox2yqxppNu4UAYvuynNK79GEo4eyPUjK6j2s",
+  "senderPublicKey": "GDPfYHA6NUZCmin3J7LWZhCvSjBcna8HebyvQyrw17v",
   "data": [
     {
       "key": "%s__factory",
@@ -8,7 +8,7 @@
     }
   ],
   "proofs": [],
-  "fee": 100000,
+  "fee": 500000,
   "type": 12,
   "version": 2,
   "chainId": 87

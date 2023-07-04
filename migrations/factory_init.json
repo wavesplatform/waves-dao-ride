@@ -12,19 +12,24 @@
       "value": "3PGWhtvCSz1TRJhe3BJSrvQigrtKuyXsgma"
     },
     {
-      "key": "%s__treasury",
+      "key": "%s__proxyTreasury",
       "type": "string",
       "value": "3PEgG7eZHLFhcfsTSaYxgRhZsh4AxMvA4Ms"
+    },
+    {
+      "key": "%s__mainTreasury",
+      "type": "string",
+      "value": "3PEwRcYNAUtoFvKpBhKoiwajnZfdoDR6h4h"
+    },
+    {
+      "key": "%s__featureTreasury",
+      "type": "string",
+      "value": "3P7XaCYwKR7x4jLsZ4GwXK3PJZciYuX5DqA"
     },
     {
       "key": "%s__lpAssetId",
       "type": "string",
       "value": "HYogWffUjS8Uw4bYA1Dn3qrGmJerMqkf139aJcHhk8yq"
-    },
-    {
-      "key": "%s__xtnAssetId",
-      "type": "string",
-      "value": "DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p"
     },
     {
       "key": "%s__currentPeriod",
@@ -57,9 +62,14 @@
       "value": 122581754945
     },
     {
-      "key": "%s%s__invested__DG2xFkPdDwKUoBkzGAhQtLpSGzfXLiCYPEzeKH2Ad24p",
+      "key": "%s%s__donated__WAVES",
       "type": "integer",
-      "value": 19600000000000
+      "value": 65116200000000
+    },
+    {
+      "key": "%s__blockProcessingReward",
+      "type": "integer",
+      "value": 500000
     },
     {
       "key": "%s%s__available__3P2EDoG2nxrXGwcGT8RkGhWJje61ZMCuXr3",
