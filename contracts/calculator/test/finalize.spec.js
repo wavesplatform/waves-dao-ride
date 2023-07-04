@@ -13,18 +13,20 @@ describe(`[${process.pid}] calculator: finalize`, () => {
   let accounts, lpAssetId
   const paymentAmount = 1
   const periodLength = 1
-  const newTreasuryVolumeInWaves = 12345 * 1e8
+  const periodReward = 2 * 1e8
+  const newTreasuryVolumeInWaves = 6789 * 1e8
   const pwrManagersBonusInWaves = 777 * 1e8
   const treasuryVolumeDiffAllocationCoef = -0.123456
   const initialInvestInWaves = 5678 * 1e8
   const initialDonatedInWaves = 3456 * 1e8
+  const blockProcessingReward = 0.005 * 1e8
 
   before(async () => {
     const { height } = await api.blocks.fetchHeight();
     ({ accounts, lpAssetId } = await setup({
       nextBlockToProcess: height,
       periodLength,
-      blockProcessingReward: 0,
+      blockProcessingReward,
       investedWavesAmount: initialInvestInWaves,
       donatedWavesAmount: initialDonatedInWaves
     }))
@@ -60,7 +62,7 @@ describe(`[${process.pid}] calculator: finalize`, () => {
       payment: [{ assetId: null, amount: paymentAmount }],
       chainId,
       additionalFee: 4e5
-    }, accounts.featureTreasury.seed))).to.be.rejectedWith('unprocessed blocks')
+    }, accounts.mainTreasury.seed))).to.be.rejectedWith('unprocessed blocks')
   })
 
   it('period should be finalized', async () => {
@@ -85,21 +87,23 @@ describe(`[${process.pid}] calculator: finalize`, () => {
       payment: [{ assetId: null, amount: paymentAmount }],
       chainId,
       additionalFee: 4e5
-    }, accounts.featureTreasury.seed))
+    }, accounts.mainTreasury.seed))
 
     const { balance: factoryBalanceAfter } = await api.addresses.fetchBalance(accounts.factory.address)
 
     const [{ quantity }] = await api.assets.fetchDetails([lpAssetId])
     const { value: price } = await api.addresses.fetchDataKey(accounts.factory.address, '%s%d__price__1')
 
-    const totalInitInvest = initialDonatedInWaves + initialInvestInWaves
-    const profitOrLoss = newTreasuryVolumeInWaves - totalInitInvest
+    const totalReward = periodLength * periodReward - blockProcessingReward
+    const totalInvestAmount = initialInvestInWaves + totalReward
+    const totalInvestAndDonation = initialDonatedInWaves + totalInvestAmount
+    const profitOrLoss = newTreasuryVolumeInWaves - totalInvestAndDonation
     const rawProfit = profitOrLoss - (pwrManagersBonusInWaves <= profitOrLoss ? pwrManagersBonusInWaves : 0)
 
-    const donationPart = initialDonatedInWaves / totalInitInvest
-    const investPart = initialInvestInWaves / totalInitInvest
-    const donatedRawProfit = rawProfit * donationPart
-    const investRawProfit = rawProfit * investPart
+    const donationPart = initialDonatedInWaves / totalInvestAndDonation
+    const investPart = totalInvestAmount / totalInvestAndDonation
+    const donatedRawProfit = Math.floor(rawProfit * donationPart)
+    const investRawProfit = Math.floor(rawProfit * investPart)
     let investProfit = investRawProfit
     if (treasuryVolumeDiffAllocationCoef < 0) {
       investProfit = investRawProfit * (1 - Math.abs(treasuryVolumeDiffAllocationCoef))
@@ -108,7 +112,8 @@ describe(`[${process.pid}] calculator: finalize`, () => {
       investProfit = investRawProfit + donatedRawProfit * Math.abs(treasuryVolumeDiffAllocationCoef)
     }
 
-    const expectedPrice = Math.floor((initialInvestInWaves + investProfit) * scale8 / quantity)
+    investProfit = Math.floor(investProfit)
+    const expectedPrice = Math.floor((totalInvestAmount + investProfit) * scale8 / quantity)
     console.log(price / scale8, expectedPrice / scale8)
     expect(price, 'invalid price').to.equal(expectedPrice)
     const expectedFactoryBalance = factoryBalanceBefore + paymentAmount

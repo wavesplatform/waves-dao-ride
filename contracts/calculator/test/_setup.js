@@ -32,7 +32,7 @@ export const setup = async ({
     'factory',
     'calculator',
     'treasury',
-    'featureTreasury',
+    'mainTreasury',
     'user1'
   ]
   const accounts = Object.fromEntries(names.map((item) => {
@@ -93,8 +93,8 @@ export const setup = async ({
     additionalFee: 4e5,
     data: [
       { key: '%s__calculator', type: 'string', value: accounts.calculator.address },
-      { key: '%s__treasury', type: 'string', value: daoAddress() },
-      { key: '%s__featureTreasury', type: 'string', value: accounts.featureTreasury.address },
+      { key: '%s__proxyTreasury', type: 'string', value: daoAddress() },
+      { key: '%s__mainTreasury', type: 'string', value: accounts.mainTreasury.address },
       { key: '%s__lpAssetId', type: 'string', value: lpAssetId },
       { key: '%s__nextBlockToProcess', type: 'integer', value: nextBlockToProcess },
       { key: '%s__currentPeriod', type: 'integer', value: currentPeriod },

@@ -221,6 +221,8 @@ func finalize(
   let newPrice = fraction(investedWavesAmountNew, SCALE8, lpAssetQuantity)
 
   let lpAssetAmountToBurn = factoryAddressOrFail.getInteger(keyWithdrawal()).valueOrElse(0)
+  let newLpAmount = lpAssetQuantity - lpAssetAmountToBurn
+  let newInvestAmount = max([0, fraction(newLpAmount, newPrice, SCALE8)])
   let paymentAmountMin = max([0, fraction(lpAssetAmountToBurn, newPrice, SCALE8)])
   let paymentOption = if (i.payments.size() > 0) then i.payments[0] else unit
   let paymentAmount = paymentOption.value().amount
@@ -246,7 +248,9 @@ func finalize(
     factoryAddressOrFail.invoke("integerEntry", [keyStartHeight(newPeriod), periodEndHeight + 1], []),
     # burn total withdrawal amount
     factoryAddressOrFail.invoke("burn", [lpAssetAmountToBurn], []),
-    factoryAddressOrFail.invoke("integerEntry", [keyWithdrawal(), 0], [])
+    factoryAddressOrFail.invoke("integerEntry", [keyWithdrawal(), 0], []),
+    # Calc new invested amount
+    factoryAddressOrFail.invoke("integerEntry", [keyInvested(unit), newInvestAmount], [])
   ]
 
   (actions, factoryActions)
@@ -478,6 +482,7 @@ func processBlocks(userAddressBytes: ByteVector) = {
   strict (lpAssetAmountTotal, rewardAmountTotal) = FOLD<40>(list, (0, 0), map)
 
   let rewardToMainTreasuryAmount = rewardAmountTotal - blockProcessingReward
+  let invested = factoryAddressOrFail.getInteger(keyInvested(unit)).valueOrElse(0)
 
   strict actions = [
     factoryAddressOrFail.invoke("reissue", [
@@ -494,6 +499,10 @@ func processBlocks(userAddressBytes: ByteVector) = {
     factoryAddressOrFail.invoke("transferFromProxyTreasury", [
       userAddressBytes,
       blockProcessingReward
+    ], []),
+    # increase invested amount
+    factoryAddressOrFail.invoke("integerEntry", [
+      keyInvested(unit), invested + rewardToMainTreasuryAmount
     ], [])
   ]
 

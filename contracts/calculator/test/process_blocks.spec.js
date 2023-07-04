@@ -42,7 +42,7 @@ describe(`[${process.pid}] calculator: process blocks`, () => {
     const expectedBalance = daoBlockReward * periodLength - blockProcessingReward
     expect(balance).to.equal(expectedBalance)
 
-    const { balance: featureTreasuryBalance } = await api.addresses.fetchBalance(accounts.featureTreasury.address)
+    const { balance: featureTreasuryBalance } = await api.addresses.fetchBalance(accounts.mainTreasury.address)
     const blockReward = 2e8
     const setupBalance = 100e8 // Waves amount from setup
     const expectedFeatureTreasuryBalance = blockReward * periodLength - blockProcessingReward + setupBalance

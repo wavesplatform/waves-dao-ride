@@ -64,7 +64,7 @@ describe(`[${process.pid}] calculator: claim waves`, () => {
       payment: [{ assetId: null, amount: finalizePaymentAmount }],
       chainId,
       additionalFee: 4e5
-    }, accounts.featureTreasury.seed))
+    }, accounts.mainTreasury.seed))
 
     const { stateChanges } = await broadcastAndWait(invokeScript({
       dApp: accounts.factory.address,
