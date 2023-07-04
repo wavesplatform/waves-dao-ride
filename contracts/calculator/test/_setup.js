@@ -65,15 +65,6 @@ export const setup = async ({
     chainId
   }, accounts.factory.seed))
 
-  const { id: xtnAssetId } = await broadcastAndWait(issue({
-    name: 'XTN.',
-    description: '',
-    quantity: 1,
-    decimals: 6,
-    reissuable: true,
-    chainId
-  }, baseSeed))
-
   if (lpAssetAmountToIssueRaw === 0) {
     await broadcastAndWait(burn({
       assetId: lpAssetId,
@@ -120,5 +111,5 @@ export const setup = async ({
   await setScriptFromFile(calculatorPath, accounts.calculator.seed)
   await setScriptFromFile(factoryPath, accounts.factory.seed)
 
-  return { accounts, lpAssetId, xtnAssetId, periodLength, blockProcessingReward, price }
+  return { accounts, lpAssetId, periodLength, blockProcessingReward, price }
 }
