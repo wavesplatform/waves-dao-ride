@@ -14,12 +14,12 @@ describe(`[${process.pid}] calculator: finalize`, () => {
   const paymentAmount = 1
   const periodLength = 1
   const periodReward = 2 * 1e8
-  const newTreasuryVolumeInWaves = 6789 * 1e8
-  const pwrManagersBonusInWaves = 777 * 1e8
-  const treasuryVolumeDiffAllocationCoef = -0.123456
-  const initialInvestInWaves = 5678 * 1e8
-  const initialDonatedInWaves = 3456 * 1e8
-  const blockProcessingReward = 0.005 * 1e8
+  const newTreasuryVolumeInWaves = 10000 * 1e8
+  const pwrManagersBonusInWaves = 700 * 1e8
+  const treasuryVolumeDiffAllocationCoef = -0.5
+  const initialInvestInWaves = 5000 * 1e8
+  const initialDonatedInWaves = 3000 * 1e8
+  const blockProcessingReward = 0.015 * 1e8
 
   before(async () => {
     const { height } = await api.blocks.fetchHeight();
@@ -102,8 +102,8 @@ describe(`[${process.pid}] calculator: finalize`, () => {
 
     const donationPart = initialDonatedInWaves / totalInvestAndDonation
     const investPart = totalInvestAmount / totalInvestAndDonation
-    const donatedRawProfit = Math.floor(rawProfit * donationPart)
-    const investRawProfit = Math.floor(rawProfit * investPart)
+    const donatedRawProfit = rawProfit * donationPart
+    const investRawProfit = rawProfit * investPart
     let investProfit = investRawProfit
     if (treasuryVolumeDiffAllocationCoef < 0) {
       investProfit = investRawProfit * (1 - Math.abs(treasuryVolumeDiffAllocationCoef))
@@ -112,7 +112,6 @@ describe(`[${process.pid}] calculator: finalize`, () => {
       investProfit = investRawProfit + donatedRawProfit * Math.abs(treasuryVolumeDiffAllocationCoef)
     }
 
-    investProfit = Math.floor(investProfit)
     const expectedPrice = Math.floor((totalInvestAmount + investProfit) * scale8 / quantity)
     console.log(price / scale8, expectedPrice / scale8)
     expect(price, 'invalid price').to.equal(expectedPrice)
