@@ -480,9 +480,6 @@ func processBlocks(userAddressBytes: ByteVector) = {
   let rewardToMainTreasuryAmount = rewardAmountTotal - blockProcessingReward
 
   strict actions = [
-    factoryAddressOrFail.invoke("transferWaves", [
-      userAddressBytes, blockProcessingReward
-    ], []),
     factoryAddressOrFail.invoke("reissue", [
       lpAssetAmountTotal
     ], []),
@@ -495,7 +492,7 @@ func processBlocks(userAddressBytes: ByteVector) = {
       rewardToMainTreasuryAmount
     ], []),
     factoryAddressOrFail.invoke("transferFromProxyTreasury", [
-      factoryAddressOrFail.bytes,
+      userAddressBytes,
       blockProcessingReward
     ], [])
   ]
