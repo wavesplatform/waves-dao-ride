@@ -91,14 +91,14 @@ let proxyTreasuryAddressOption = match factoryAddressOption {
 }
 let proxyTreasuryAddressOrFail = proxyTreasuryAddressOption.valueOrErrorMessage(wrapErr("invalid proxy treasury address"))
 
-let featureTreasuryAddressOption  = match factoryAddressOption {
+let mainTreasuryAddressOption  = match factoryAddressOption {
   case a: Address => match a.getString(keyMainTreasuryAddress()) {
     case s: String => s.addressFromString()
     case _: Unit => unit
   }
   case _: Unit => unit
 }
-let featureTreasuryAddressOrFail = featureTreasuryAddressOption.valueOrErrorMessage(wrapErr("invalid feature treasury address"))
+let mainTreasuryAddressOrFail = mainTreasuryAddressOption.valueOrErrorMessage(wrapErr("invalid main treasury address"))
 
 func getManagerPublicKeyOrUnit() = {
   match (factoryAddressOption) {
@@ -186,7 +186,7 @@ func finalize(
   let periodEndHeight = currentStartHeight + periodLength - 1
 
   strict checks = [
-    i.originCaller == featureTreasuryAddressOrFail || throwErr("permission denied"),
+    i.originCaller == mainTreasuryAddressOrFail || throwErr("permission denied"),
     nextBlockToProcess > periodEndHeight || throwErr("unprocessed blocks"),
     newTreasuryVolumeInWaves >= 0 || throwErr("invalid new treasury volume"),
     pwrManagersBonusInWaves >= 0 || throwErr("invalid PWR managers bonus"),
@@ -288,7 +288,7 @@ func invest(userAddressBytes: ByteVector) = {
   let invested = factoryAddressOrFail.getInteger(keyInvested(unit)).valueOrElse(0)
   
   let actions = [
-    ScriptTransfer(featureTreasuryAddressOrFail, paymentAmount, paymentAssetId)
+    ScriptTransfer(mainTreasuryAddressOrFail, paymentAmount, paymentAssetId)
   ]
 
   let factoryActions = [
@@ -506,7 +506,7 @@ func processBlocks(userAddressBytes: ByteVector) = {
       nextBlockToProcess + blocksProcessingBatchSize
     ], []),
     factoryAddressOrFail.invoke("transferFromProxyTreasury", [
-      featureTreasuryAddressOrFail.bytes,
+      mainTreasuryAddressOrFail.bytes,
       rewardToMainTreasuryAmount
     ], []),
     factoryAddressOrFail.invoke("transferFromProxyTreasury", [
