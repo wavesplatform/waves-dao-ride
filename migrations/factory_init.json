@@ -67,6 +67,11 @@
       "value": 65116200000000
     },
     {
+      "key": "%s__blockProcessingReward",
+      "type": "integer",
+      "value": 500000
+    },
+    {
       "key": "%s%s__available__3P2EDoG2nxrXGwcGT8RkGhWJje61ZMCuXr3",
       "type": "integer",
       "value": 5000000000

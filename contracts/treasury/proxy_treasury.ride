@@ -4,9 +4,6 @@
 
 let SEP = "__"
 let contractFilename = "proxy_treasury.ride"
-let ADMIN_LIST_SIZE = 5
-let QUORUM = 3
-let TXID_BYTES_LENGTH = 32
 
 func wrapErr(s: String) = {
   contractFilename + ": " + s
@@ -16,45 +13,14 @@ func throwErr(s: String) = {
   throw(wrapErr(s))
 }
 
-func keyAllowedTxIdVotePrefix(txId: String) = makeString(["%s%s%s", "allowTxId", txId], SEP)
-
-# Make Admin vote key 
-func keyFullAdminVote(prefix: String, adminAddress: String) = makeString([prefix, adminAddress], SEP)
-
-# Admin List key
-func keyAdminAddressList() = makeString(["%s", "adminAddressList"], SEP)
-
-# Factory address key
 func keyFactoryAddress() = makeString(["%s", "factory"], SEP)
-
-# Allowed TXID key
-func keyAllowedTxId() = makeString(["%s", "txId"], SEP)
-
-func keyConfigAddress() = "%s__config"
-func keyVotingResultAddress() = "contract_voting_result"
-func keyProposalAllowBroadcast(address: Address, txId: ByteVector) = {
-  "proposal_allow_broadcast_" + address.toString() + "_" + txId.toBase58String()
-}
-let configAddressOption = match this.getString(keyConfigAddress()) {
-  case s: String => s.addressFromString()
-  case _: Unit => unit
-}
-let configAddress = configAddressOption.valueOrErrorMessage(wrapErr("invalid config address"))
+func keyManagerPublicKey() = makeString(["%s", "managerPublicKey"], SEP)
 
 let factoryAddressOption = match this.getString(keyFactoryAddress()) {
   case s: String => s.addressFromString()
   case _: Unit => unit
 }
 let factoryAddressOrFail = factoryAddressOption.valueOrErrorMessage(wrapErr("invalid factory address"))
-
-let votingResultContractOption = match configAddressOption {
-  case a: Address => match a.getString(keyVotingResultAddress()) {
-    case s: String => s.addressFromString()
-    case _: Unit => unit
-  }
-  case _: Unit => unit
-}
-let votingResultContract = votingResultContractOption.valueOrErrorMessage(wrapErr("invalid voting result address"))
 
 func onlyAddress(i: Invocation, address: Address) = {
   i.caller == address || throwErr("permission denied")
@@ -64,73 +30,16 @@ func onlyFactory(i: Invocation) = {
   onlyAddress(i, factoryAddressOrFail)
 }
 
-func getAdminVote(prefix: String, admin: String) = {
-  let voteKey = keyFullAdminVote(prefix, admin)
-  getInteger(voteKey).valueOrElse(0)
-}
-
-func getAdminsList() = {
-  match (this.getString(keyAdminAddressList())) {
-    case s:String => s.split(SEP)
-    case _ => []
-  }
-}
-
-func isInAdminList(address: String) = {
-  getAdminsList().containsElement(address)
-}
-
-# Generate List of keys with same prefix for all admins
-func genVotesKeysHelper(a: (List[String], String), adminAddress: String) = {
-  let (result, prefix) = a
-  (result :+ keyFullAdminVote(prefix, adminAddress), prefix)
-}
-func genVotesKeys(keyPrefix: String) = {
-  let adminList = keyAdminAddressList()
-  let (result, prefix) = FOLD<5>(getAdminsList(), ([], keyPrefix), genVotesKeysHelper)
-  result
-}
-
-# Count all votes for Prefix
-func countVotesHelper(result: Int, voteKey: String) = {
-  result + getInteger(voteKey).valueOrElse(0)
-}
-func countVotes(prefix: String) = {
-  let votes = genVotesKeys(prefix)
-  FOLD<5>(votes, 0, countVotesHelper)
-}
-
-# Generate DeleteEntry for all votes with Prefix
-func clearVotesHelper(result: List[DeleteEntry], key: String) = {
-  result :+ DeleteEntry(key) 
-}
-func getClearVoteEntries(prefix: String) = {
-  let votes = genVotesKeys(prefix)
-  FOLD<5>(votes, [], clearVotesHelper)
-}
-
-func voteINTERNAL(
-  callerAddressString: String, 
-  keyPrefix: String, 
-  minVotes: Int, 
-  voteResult: List[StringEntry|IntegerEntry|DeleteEntry]
-) = {
-  let voteKey = keyFullAdminVote(keyPrefix, callerAddressString)
-  let adminCurrentVote = getAdminVote(keyPrefix, callerAddressString)
-
-  strict err = if (!isInAdminList(callerAddressString)) then {
-    throwErr("Address: " + callerAddressString + " not in Admin list")
-  } else if (adminCurrentVote == 1) then {
-    throwErr(voteKey + " you already voted")
-  } else { unit }
-
-  let votes = countVotes(keyPrefix)
-  if (votes + 1 >= minVotes) then {
-    let clearVoteEntries = getClearVoteEntries(keyPrefix)
-    clearVoteEntries ++ voteResult
-  } else {
-    [ IntegerEntry(voteKey, 1) ]
-  }
+func getManagerPublicKeyOrUnit() = {
+  match (factoryAddressOption) {
+      case fa:Address => {
+        match (fa.getString(keyManagerPublicKey())) {
+            case pub:String => pub.fromBase58String()
+            case _ => unit
+          }
+      }
+      case _ => unit
+    }
 }
 
 @Callable(i)
@@ -141,30 +50,12 @@ func transferWaves(recipientBytes: ByteVector, amount: Int) = {
   ]
 }
 
-# Vote for txId that is allowed in Verifier
-@Callable(i)
-func voteForTxId(txId: String) = {
-  let callerAddressString = toBase58String(i.caller.bytes)
-  let keyPrefix = keyAllowedTxIdVotePrefix(txId)
-  let result = [ StringEntry(keyAllowedTxId(), txId) ]
-  let allowedTxIdOption = this.getString(keyAllowedTxId())
-  
-  strict err = [
-    txId.fromBase58String().size() == TXID_BYTES_LENGTH || throwErr(txId + " is not valid txId"),
-    allowedTxIdOption == unit || allowedTxIdOption.value() != txId || throwErr(txId + " is already allowed")
-  ]
-
-  voteINTERNAL(callerAddressString, keyPrefix, QUORUM, result)
-}
-
 @Verifier(tx)
 func verify() = {
-  let allowedTxIdStringOption = getString(keyAllowedTxId())
-  let currentAdminList = getAdminsList()
-  let byProposal = votingResultContract.getBoolean(keyProposalAllowBroadcast(this, tx.id)).valueOrElse(false)
-  let byAdmins = allowedTxIdStringOption != unit && tx.id == allowedTxIdStringOption.value().fromBase58String()
-  let byOwner = sigVerify(tx.bodyBytes, tx.proofs[0], tx.senderPublicKey)
-  if (configAddressOption != unit && currentAdminList.size() == ADMIN_LIST_SIZE) then {
-    (votingResultContractOption != unit && byProposal) || byAdmins
-  } else byOwner
+  let publicKey = match (getManagerPublicKeyOrUnit()) {
+      case pub:ByteVector => pub 
+      case _ => tx.senderPublicKey
+  }
+
+  sigVerify(tx.bodyBytes, tx.proofs[0], publicKey)
 }

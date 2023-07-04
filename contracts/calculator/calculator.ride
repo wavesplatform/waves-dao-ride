@@ -29,6 +29,7 @@ func abs(n: Int) = {
 }
 
 func keyFactoryAddress() = ["%s", "factory"].makeString(SEP)
+func keyManagerPublicKey() = ["%s", "managerPublicKey"].makeString(SEP)
 func keyLpAssetId() = ["%s", "lpAssetId"].makeString(SEP)
 func keyProxyTreasuryAddress() = ["%s", "proxyTreasury"].makeString(SEP)
 func keyMainTreasuryAddress() = ["%s", "mainTreasury"].makeString(SEP)
@@ -98,6 +99,18 @@ let featureTreasuryAddressOption  = match factoryAddressOption {
   case _: Unit => unit
 }
 let featureTreasuryAddressOrFail = featureTreasuryAddressOption.valueOrErrorMessage(wrapErr("invalid feature treasury address"))
+
+func getManagerPublicKeyOrUnit() = {
+  match (factoryAddressOption) {
+      case fa:Address => {
+        match (fa.getString(keyManagerPublicKey())) {
+            case pub:String => pub.fromBase58String()
+            case _ => unit
+          }
+      }
+      case _ => unit
+    }
+}
 
 func onlyAddress(i: Invocation, address: Address) = {
   i.caller == address || throwErr("permission denied")
@@ -511,5 +524,10 @@ func processBlocks(userAddressBytes: ByteVector) = {
 
 @Verifier(tx)
 func verify() = {
-  sigVerify(tx.bodyBytes, tx.proofs[0], tx.senderPublicKey)
+  let publicKey = match (getManagerPublicKeyOrUnit()) {
+      case pub:ByteVector => pub 
+      case _ => tx.senderPublicKey
+  }
+
+  sigVerify(tx.bodyBytes, tx.proofs[0], publicKey)
 }
