@@ -5,7 +5,6 @@
 let SEP = "__"
 let CONTRACT_NAME = "calculator.ride"
 let SCALE8 = 100_000_000
-let SCALE6 = 1_000_000
 let PENDING = "PENDING"
 let FINISHED = "FINISHED"
 let WAVES = "WAVES"
@@ -380,7 +379,6 @@ func claimWaves(userAddressBytes: ByteVector, txId: ByteVector) = {
         keyWithdrawalRequest(userAddress, txId),
         valueWithdrawalRequest(FINISHED, lpAssetAmount, targetPeriod, i.transactionId)
       ], []),
-      factoryAddressOrFail.invoke("burn", [lpAssetAmount], []),
       factoryAddressOrFail.invoke("transferWaves", [userAddressBytes, amount], [])
     ]
     (nil, factoryActions)
