@@ -260,6 +260,11 @@
       "key": "%s__adminAddressList",
       "type": "string",
       "value": "3PBUguU83ccjXz7NBbR3vn67fVHawbxwaTH__3PLU2bd4CDhHC35bf5qsQxYLpkEkpgkrcvc__3PF3AgB3cEE8F9ZUxuA9aLyM2PBjKrrszZQ__3PHdaP2BLUXFacnqZm6WoFjidvzqZZMbb8j__3P33RBZUXcdx5JW918DqFfrscEuEZpAPUPz"
+    },
+    {
+      "key": "%s__managerPublicKey",
+      "type": "string",
+      "value": "8FkC1gHej3uofJ24ba24sYfbsmUvoZsrwKpf67v3chYM"
     }
   ],
   "proofs": [],
