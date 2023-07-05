@@ -225,17 +225,24 @@ func finalize(
   )
   let donationProfitPart = donationProfitPartRaw - amountToInvestment + amountToDonation
   let investmentProfitPart = investmentProfitPartRaw - amountToDonation + amountToInvestment
-  let investedWavesAmountNew = investedWavesAmount + investmentProfitPart
+
+  let donatedWavesAmountNewRaw = donatedWavesAmount + donationProfitPart
+  let investedWavesAmountNewRaw = investedWavesAmount + investmentProfitPart
+  
+  let donatedPartDebt = min([0, donatedWavesAmountNewRaw])
+  let investedPartDebt = min([0, investedWavesAmountNewRaw])
+
+  let donatedWavesAmountNew = max([0, donatedWavesAmountNewRaw]) + investedPartDebt
+  let investedWavesAmountNew = max([0, investedWavesAmountNewRaw]) + donatedPartDebt
 
   let newPeriod = currentPeriodOrFail + 1
   # calculate new price
   let lpAssetQuantity = lpAssetIdOrFail.assetInfo()
     .valueOrErrorMessage(wrapErr("invalid lpAsset info")).quantity
   let newPrice = fraction(investedWavesAmountNew, SCALE8, lpAssetQuantity)
+  strict checkIfPriceNotZero =  (newPrice != 0) || throwErr("LP price cannot be 0")
 
   let lpAssetAmountToBurn = factoryAddressOrFail.getInteger(keyWithdrawal()).valueOrElse(0)
-  let newLpAmount = lpAssetQuantity - lpAssetAmountToBurn
-  let newInvestAmount = max([0, fraction(newLpAmount, newPrice, SCALE8)])
   let paymentAmountMin = max([0, fraction(lpAssetAmountToBurn, newPrice, SCALE8)])
   let paymentOption = if (i.payments.size() > 0) then i.payments[0] else unit
   let paymentAmount = paymentOption.value().amount
@@ -262,8 +269,10 @@ func finalize(
     # burn total withdrawal amount
     factoryAddressOrFail.invoke("burn", [lpAssetAmountToBurn], []),
     factoryAddressOrFail.invoke("integerEntry", [keyWithdrawal(), 0], []),
-    # Calc new invested amount
-    factoryAddressOrFail.invoke("integerEntry", [keyInvested(unit), newInvestAmount], [])
+    # new invested amount
+    factoryAddressOrFail.invoke("integerEntry", [keyInvested(unit), investedWavesAmountNew - paymentAmountMin], []),
+    # new donated amount
+    factoryAddressOrFail.invoke("integerEntry", [keyDonated(unit), donatedWavesAmountNew], [])
   ]
 
   (actions, factoryActions)
