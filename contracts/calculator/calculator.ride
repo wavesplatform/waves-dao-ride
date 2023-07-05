@@ -255,6 +255,8 @@ func finalize(
     )
   ) then true else throwErr("invalid payments, payment amount min: " + paymentAmountMin.toString())
 
+  strict checkIfPriceNotZero =  (newPrice != 0) || throwErr("LP price cannot be 0")
+
   let actions = if (paymentOption != unit) then [
     ScriptTransfer(factoryAddressOrFail, paymentAmount, paymentAssetId)
   ] else nil
