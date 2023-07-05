@@ -240,6 +240,7 @@ func finalize(
   let lpAssetQuantity = lpAssetIdOrFail.assetInfo()
     .valueOrErrorMessage(wrapErr("invalid lpAsset info")).quantity
   let newPrice = fraction(investedWavesAmountNew, SCALE8, lpAssetQuantity)
+  strict checkIfPriceNotZero =  (newPrice != 0) || throwErr("LP price cannot be 0")
 
   let lpAssetAmountToBurn = factoryAddressOrFail.getInteger(keyWithdrawal()).valueOrElse(0)
   let paymentAmountMin = max([0, fraction(lpAssetAmountToBurn, newPrice, SCALE8)])
@@ -255,8 +256,6 @@ func finalize(
     )
   ) then true else throwErr("invalid payments, payment amount min: " + paymentAmountMin.toString())
 
-  strict checkIfPriceNotZero =  (newPrice != 0) || throwErr("LP price cannot be 0")
-
   let actions = if (paymentOption != unit) then [
     ScriptTransfer(factoryAddressOrFail, paymentAmount, paymentAssetId)
   ] else nil
@@ -271,7 +270,7 @@ func finalize(
     factoryAddressOrFail.invoke("burn", [lpAssetAmountToBurn], []),
     factoryAddressOrFail.invoke("integerEntry", [keyWithdrawal(), 0], []),
     # new invested amount
-    factoryAddressOrFail.invoke("integerEntry", [keyInvested(unit), investedWavesAmountNew], []),
+    factoryAddressOrFail.invoke("integerEntry", [keyInvested(unit), investedWavesAmountNew - paymentAmountMin], []),
     # new donated amount
     factoryAddressOrFail.invoke("integerEntry", [keyDonated(unit), donatedWavesAmountNew], [])
   ]
