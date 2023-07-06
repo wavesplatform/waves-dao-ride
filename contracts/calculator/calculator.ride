@@ -1,0 +1,613 @@
+{-# STDLIB_VERSION 7 #-}
+{-# CONTENT_TYPE DAPP #-}
+{-# SCRIPT_TYPE ACCOUNT #-}
+
+let SEP = "__"
+let CONTRACT_NAME = "calculator.ride"
+let SCALE8 = 100_000_000
+let PENDING = "PENDING"
+let FINISHED = "FINISHED"
+let WAVES = "WAVES"
+
+func wrapErr(s: String) = {
+  CONTRACT_NAME + ": " + s
+}
+
+func throwErr(s: String) = {
+  throw(wrapErr(s))
+}
+
+func assetIdToString(assetId: ByteVector|Unit) = {
+  match assetId {
+    case b: ByteVector => b.toBase58String()
+    case _: Unit => WAVES
+  }
+}
+
+func abs(n: Int) = {
+  if (n < 0) then -n else n
+}
+
+func keyFactoryAddress() = ["%s", "factory"].makeString(SEP)
+func keyManagerPublicKey() = ["%s", "managerPublicKey"].makeString(SEP)
+func keyLpAssetId() = ["%s", "lpAssetId"].makeString(SEP)
+func keyProxyTreasuryAddress() = ["%s", "proxyTreasury"].makeString(SEP)
+func keyMainTreasuryAddress() = ["%s", "mainTreasury"].makeString(SEP)
+func keyInvested(assetId: ByteVector|Unit) = ["%s%s", "invested", assetIdToString(assetId)].makeString(SEP)
+func keyDonated(assetId: ByteVector|Unit) = ["%s%s", "donated", assetIdToString(assetId)].makeString(SEP)
+func keyAvailable(userAddress: Address) = ["%s%s", "available", userAddress.toString()].makeString(SEP)
+func keyClaimed(userAddress: Address) = ["%s%s", "claimed", userAddress.toString()].makeString(SEP)
+func keyCurrentPeriod() = ["%s", "currentPeriod"].makeString(SEP)
+func keyPriceForPeriod(period: Int) = ["%s%d", "price", period.toString()].makeString(SEP)
+func keyStartHeight(period: Int) = ["%s%d", "startHeight", period.toString()].makeString(SEP)
+func keyPowerManagerBonus(period: Int) = ["%s%d", "powerManagerBonus", period.toString()].makeString(SEP)
+func keyPeriodLength() = "%s__periodLength"
+func keyBlockProcessingReward() = "%s__blockProcessingReward"
+func keyNextBlockToProcess() = "%s__nextBlockToProcess"
+func keyBlockProcessed(height: Int) = ["%s%d", "blockProcessed", height.toString()].makeString(SEP)
+func keyWithdrawal() = "%s__withdrawal"
+func keyWithdrawalRequest(userAddress: Address, txId: ByteVector) =
+  ["%s%s%s", "withdrawal", userAddress.toString(), txId.toBase58String()].makeString(SEP)
+func valueWithdrawalRequest(status: String, lpAssetAmount: Int, targetPeriod: Int, claimTxId: ByteVector|Unit) = {
+  let claimTxIdStr = match claimTxId {
+    case b: ByteVector => b.toBase58String()
+    case _: Unit => "SOON"
+  }
+  ["%s%d%d%s", status, lpAssetAmount.toString(), targetPeriod.toString(), claimTxIdStr].makeString(SEP)
+}
+func parseWithdrawalRequestValueOrFail(s: String) = {
+  let parts = s.split(SEP)
+  if (parts.size() == 5) then {
+    let status = parts[1]
+    let lpAssetAmount = parts[2].parseInt().valueOrErrorMessage(wrapErr("invalid lpAssetAmount"))
+    let targetPeriod = parts[3].parseInt().valueOrErrorMessage(wrapErr("invalid targetPeriod"))
+    let claimTxId = parts[4]
+    (status, lpAssetAmount, targetPeriod, claimTxId)
+  } else {
+    throwErr("invalid withdrawal request value")
+  }
+}
+
+let factoryAddressOption = match this.getString(keyFactoryAddress()) {
+  case s: String => s.addressFromString()
+  case _: Unit => unit
+}
+let factoryAddressOrFail = factoryAddressOption.valueOrErrorMessage(wrapErr("invalid factory address"))
+
+let lpAssetIdOption = match factoryAddressOption {
+  case a: Address => match a.getString(keyLpAssetId()) {
+    case s: String => s.fromBase58String()
+    case _: Unit => unit
+  }
+  case _: Unit => unit
+}
+let lpAssetIdOrFail = lpAssetIdOption.valueOrErrorMessage(wrapErr("invalid lpAssetId"))
+
+let proxyTreasuryAddressOption = match factoryAddressOption {
+  case a: Address => match a.getString(keyProxyTreasuryAddress()) {
+    case s: String => s.addressFromString()
+    case _: Unit => unit
+  }
+  case _: Unit => unit
+}
+let proxyTreasuryAddressOrFail = proxyTreasuryAddressOption.valueOrErrorMessage(wrapErr("invalid proxy treasury address"))
+
+let mainTreasuryAddressOption  = match factoryAddressOption {
+  case a: Address => match a.getString(keyMainTreasuryAddress()) {
+    case s: String => s.addressFromString()
+    case _: Unit => unit
+  }
+  case _: Unit => unit
+}
+let mainTreasuryAddressOrFail = mainTreasuryAddressOption.valueOrErrorMessage(wrapErr("invalid main treasury address"))
+
+func getManagerPublicKeyOrUnit() = {
+  match (factoryAddressOption) {
+      case fa:Address => {
+        match (fa.getString(keyManagerPublicKey())) {
+            case pub:String => pub.fromBase58String()
+            case _ => unit
+          }
+      }
+      case _ => unit
+    }
+}
+
+func onlyAddress(i: Invocation, address: Address) = {
+  i.caller == address || throwErr("permission denied")
+}
+
+func onlyFactory(i: Invocation) = {
+  onlyAddress(i, factoryAddressOrFail)
+}
+
+func rewardForOption(rewards: List[(Address, Int)], target: Address) = {
+  let s = rewards.size()
+  let (a0, r0) = rewards[0]
+  let (a1, r1) = rewards[1]
+  let (a2, r2) = rewards[2]
+  if (s > 0 && a0 == target) then r0 
+  else if (s > 1 && a1 == target) then r1
+  else if (s > 2 && a2 == target) then r2
+  else unit
+}
+
+func finalizeINTERNAL(
+  newTreasuryVolumeInWaves: Int,
+  pwrManagersBonusInWaves: Int,
+  treasuryVolumeDiffAllocationCoef: Int
+) = {
+  let donatedWavesAmount = factoryAddressOrFail.getInteger(
+    keyDonated(unit)
+  ).valueOrElse(0)
+  let investedWavesAmount = factoryAddressOrFail.getInteger(
+    keyInvested(unit)
+  ).valueOrElse(0)
+
+  let currentTreasuryVolumeInWaves = donatedWavesAmount + investedWavesAmount
+  let profitRaw = newTreasuryVolumeInWaves - currentTreasuryVolumeInWaves
+
+  let pwrManagersBonusAmount = if (pwrManagersBonusInWaves <= profitRaw || pwrManagersBonusInWaves == 0)
+    then pwrManagersBonusInWaves
+    else throwErr("power bonus is more than profit")
+  let profit = profitRaw - pwrManagersBonusAmount
+  let donationPart = if (currentTreasuryVolumeInWaves > 0)
+    then fraction(donatedWavesAmount, SCALE8, currentTreasuryVolumeInWaves)
+    else 0
+  let donationProfitPartRaw = fraction(profit, donationPart, SCALE8)
+  let investmentProfitPartRaw = profit - donationProfitPartRaw
+  let treasuryVolumeDiffAllocationCoefAbs = abs(treasuryVolumeDiffAllocationCoef)
+  let amountToDonation = fraction(
+    investmentProfitPartRaw,
+    if (treasuryVolumeDiffAllocationCoef < 0) then treasuryVolumeDiffAllocationCoefAbs else 0,
+    SCALE8
+  )
+  let amountToInvestment = fraction(
+    donationProfitPartRaw,
+    if (treasuryVolumeDiffAllocationCoef > 0) then treasuryVolumeDiffAllocationCoefAbs else 0,
+    SCALE8
+  )
+  let donationProfitPart = donationProfitPartRaw - amountToInvestment + amountToDonation
+  let investmentProfitPart = investmentProfitPartRaw - amountToDonation + amountToInvestment
+
+  let donatedWavesAmountNewRaw = donatedWavesAmount + donationProfitPart
+  let investedWavesAmountNewRaw = investedWavesAmount + investmentProfitPart
+  
+  let donatedPartDebt = min([0, donatedWavesAmountNewRaw])
+  let investedPartDebt = min([0, investedWavesAmountNewRaw])
+
+  let donatedWavesAmountNew = max([0, donatedWavesAmountNewRaw]) + investedPartDebt
+  let investedWavesAmountNew = max([0, investedWavesAmountNewRaw]) + donatedPartDebt
+
+  # calculate new price
+  let lpAssetQuantity = lpAssetIdOrFail.assetInfo()
+    .valueOrErrorMessage(wrapErr("invalid lpAsset info")).quantity
+  let newPrice = fraction(investedWavesAmountNew, SCALE8, lpAssetQuantity)
+  strict checkIfPriceNotZero =  (newPrice != 0) || throwErr("LP price cannot be 0")
+
+  let lpAssetAmountToBurn = factoryAddressOrFail.getInteger(keyWithdrawal()).valueOrElse(0)
+  let paymentAmountMin = max([0, fraction(lpAssetAmountToBurn, newPrice, SCALE8)])
+
+  let finalInvestedWavesAmount = investedWavesAmountNew - paymentAmountMin
+  let lpAssetFinalQuantity = lpAssetQuantity - lpAssetAmountToBurn
+  
+  (paymentAmountMin, finalInvestedWavesAmount, donatedWavesAmountNew, newPrice, lpAssetAmountToBurn, lpAssetFinalQuantity)
+}
+
+@Callable(i)
+func claimLP(userAddressBytes: ByteVector) = {
+  strict checkCaller = i.onlyFactory()
+  let userAddress = Address(userAddressBytes)
+  let available = factoryAddressOrFail.getInteger(keyAvailable(userAddress)).valueOrElse(0)
+  let claimed = factoryAddressOrFail.getInteger(keyClaimed(userAddress)).valueOrElse(0)
+  let factoryActions = if (available > 0) then [
+    factoryAddressOrFail.invoke("transferAsset", [
+      userAddressBytes, available, lpAssetIdOrFail
+    ], []),
+    factoryAddressOrFail.invoke("integerEntry", [
+      keyAvailable(userAddress),
+      0
+    ], []),
+    factoryAddressOrFail.invoke("integerEntry", [
+      keyClaimed(userAddress),
+      claimed + available
+    ], [])
+  ] else throwErr("nothing to claim")
+
+  (nil, factoryActions)
+}
+
+# payment in waves to fulfill all withdrawal requests
+# treasuryVolumeDiffAllocationCoef:
+#   [-1, 0) - profit to donation
+#   0 - in proportion
+#   (0, 1] - profit to investment
+@Callable(i)
+func finalize(
+  userAddressBytes: ByteVector,
+  newTreasuryVolumeInWaves: Int,
+  pwrManagersBonusInWaves: Int,
+  treasuryVolumeDiffAllocationCoef: Int # -1..1×10⁸
+) = {
+  strict checkCaller = i.onlyFactory()
+  let currentPeriodOrFail =
+    factoryAddressOrFail.getInteger(keyCurrentPeriod())
+    .valueOrErrorMessage(wrapErr("invalid period"))
+  let periodLength =
+    factoryAddressOrFail.getInteger(keyPeriodLength())
+    .valueOrErrorMessage(wrapErr("invalid period length"))
+  let currentStartHeight = factoryAddressOrFail
+    .getInteger(keyStartHeight(currentPeriodOrFail))
+    .valueOrErrorMessage(wrapErr("invalid start height"))
+  let currentPriceOrFail =
+    factoryAddressOrFail.getInteger(keyPriceForPeriod(currentPeriodOrFail))
+    .valueOrErrorMessage(wrapErr("invalid price"))
+  let nextBlockToProcess = factoryAddressOrFail
+    .getInteger(keyNextBlockToProcess())
+    .valueOrErrorMessage(wrapErr("invalid next block to process"))
+
+  let periodEndHeight = currentStartHeight + periodLength - 1
+
+  strict checks = [
+    i.originCaller == mainTreasuryAddressOrFail || throwErr("permission denied"),
+    nextBlockToProcess > periodEndHeight || throwErr("unprocessed blocks"),
+    newTreasuryVolumeInWaves >= 0 || throwErr("invalid new treasury volume"),
+    pwrManagersBonusInWaves >= 0 || throwErr("invalid PWR managers bonus"),
+    treasuryVolumeDiffAllocationCoef >= -SCALE8 && treasuryVolumeDiffAllocationCoef <= SCALE8
+      || throwErr("invalid treasury volume diff allocation coefficient")
+  ]
+
+  # Finalize calcualtions
+  let (
+    paymentAmountMin, 
+    finalInvestedWavesAmount, 
+    donatedWavesAmountNew, 
+    newPrice, 
+    lpAssetAmountToBurn, 
+    lpAssetFinalQuantity
+  ) = finalizeINTERNAL(newTreasuryVolumeInWaves, pwrManagersBonusInWaves, treasuryVolumeDiffAllocationCoef)
+
+  let newPeriod = currentPeriodOrFail + 1
+  let paymentOption = if (i.payments.size() > 0) then i.payments[0] else unit
+  let paymentAmount = paymentOption.value().amount
+  let paymentAssetId = paymentOption.value().assetId
+  strict checkPayment = if (
+    paymentAmountMin == 0
+    || (
+      paymentOption != unit
+      && paymentAssetId == unit
+      && paymentAmount == paymentAmountMin
+    )
+  ) then true else throwErr("invalid payments, payment amount should be: " + paymentAmountMin.toString())
+
+  let actions = if (paymentOption != unit) then [
+    ScriptTransfer(factoryAddressOrFail, paymentAmount, paymentAssetId)
+  ] else nil
+
+  let factoryActions = [
+    # write power manager bonus
+    factoryAddressOrFail.invoke("integerEntry", [keyPowerManagerBonus(currentPeriodOrFail), pwrManagersBonusInWaves], []),
+    # update period
+    factoryAddressOrFail.invoke("integerEntry", [keyCurrentPeriod(), newPeriod], []),
+    # update price
+    factoryAddressOrFail.invoke("integerEntry", [keyPriceForPeriod(newPeriod), newPrice], []),
+    factoryAddressOrFail.invoke("integerEntry", [keyStartHeight(newPeriod), periodEndHeight + 1], []),
+    # burn total withdrawal amount
+    factoryAddressOrFail.invoke("burn", [lpAssetAmountToBurn], []),
+    factoryAddressOrFail.invoke("integerEntry", [keyWithdrawal(), 0], []),
+    # new invested amount
+    factoryAddressOrFail.invoke("integerEntry", [keyInvested(unit), finalInvestedWavesAmount], []),
+    # new donated amount
+    factoryAddressOrFail.invoke("integerEntry", [keyDonated(unit), donatedWavesAmountNew], [])
+  ]
+
+  (actions, factoryActions)
+}
+
+# Returned values:
+#
+# _1 = wavesToClaimPaymentAmount
+# _2 = newInvestedWavesAmount
+# _3 = newDonatedWavesAmountNew
+# _4 = newPrice
+# _5 = lpAssetAmountToBurn 
+# _6 = lpAssetNewQuantity
+#
+@Callable(i)
+func finalizeREADONLY(
+  newTreasuryVolumeInWaves: Int,
+  pwrManagersBonusInWaves: Int,
+  treasuryVolumeDiffAllocationCoef: Int # -1..1×10⁸
+) = {
+  let currentPeriodOrFail =
+    factoryAddressOrFail.getInteger(keyCurrentPeriod())
+    .valueOrErrorMessage(wrapErr("invalid period"))
+  let periodLength =
+    factoryAddressOrFail.getInteger(keyPeriodLength())
+    .valueOrErrorMessage(wrapErr("invalid period length"))
+  let currentStartHeight = factoryAddressOrFail
+    .getInteger(keyStartHeight(currentPeriodOrFail))
+    .valueOrErrorMessage(wrapErr("invalid start height"))
+  let currentPriceOrFail =
+    factoryAddressOrFail.getInteger(keyPriceForPeriod(currentPeriodOrFail))
+    .valueOrErrorMessage(wrapErr("invalid price"))
+  let nextBlockToProcess = factoryAddressOrFail
+    .getInteger(keyNextBlockToProcess())
+    .valueOrErrorMessage(wrapErr("invalid next block to process"))
+
+  let periodEndHeight = currentStartHeight + periodLength - 1
+
+  strict checks = [
+    nextBlockToProcess > periodEndHeight || throwErr("unprocessed blocks"),
+    newTreasuryVolumeInWaves >= 0 || throwErr("invalid new treasury volume"),
+    pwrManagersBonusInWaves >= 0 || throwErr("invalid PWR managers bonus"),
+    treasuryVolumeDiffAllocationCoef >= -SCALE8 && treasuryVolumeDiffAllocationCoef <= SCALE8
+      || throwErr("invalid treasury volume diff allocation coefficient")
+  ]
+
+  # Finalize calcualtions
+  ([], finalizeINTERNAL(newTreasuryVolumeInWaves, pwrManagersBonusInWaves, treasuryVolumeDiffAllocationCoef))
+}
+
+# payment in waves
+@Callable(i)
+func invest(userAddressBytes: ByteVector) = {
+  strict checkCaller = i.onlyFactory()
+  let userAddress = Address(userAddressBytes)
+  let currentPeriodOrFail =
+    factoryAddressOrFail.getInteger(keyCurrentPeriod())
+    .valueOrErrorMessage(wrapErr("invalid period"))
+  let currentPriceOrFail =
+    factoryAddressOrFail.getInteger(keyPriceForPeriod(currentPeriodOrFail))
+    .valueOrErrorMessage(wrapErr("invalid price"))
+  let payment = if (i.payments.size() == 1) then i.payments[0] else throwErr("invalid payments")
+  let (paymentAmount, paymentAssetId) = if (payment.assetId == unit && payment.amount > 0) then {
+    (payment.amount, payment.assetId)
+  } else throwErr("invalid payment amount")
+  let lpAssetAmount = if (currentPriceOrFail > 0) then fraction(paymentAmount, SCALE8, currentPriceOrFail) else 0
+  let invested = factoryAddressOrFail.getInteger(keyInvested(unit)).valueOrElse(0)
+  
+  let actions = [
+    ScriptTransfer(mainTreasuryAddressOrFail, paymentAmount, paymentAssetId)
+  ]
+
+  let factoryActions = [
+    # increase invested amount
+    factoryAddressOrFail.invoke("integerEntry", [
+      keyInvested(unit), invested + paymentAmount
+    ], []),
+    factoryAddressOrFail.invoke("reissue", [lpAssetAmount], []),
+    factoryAddressOrFail.invoke("transferAsset", [
+      userAddressBytes, lpAssetAmount, lpAssetIdOrFail
+    ], [])
+  ]
+
+  (actions, factoryActions)
+}
+
+# payment in lp asset
+@Callable(i)
+func withdraw(userAddressBytes: ByteVector) = {
+  strict checkCaller = i.onlyFactory()
+  let userAddress = Address(userAddressBytes)
+  let currentPeriodOrFail =
+    factoryAddressOrFail.getInteger(keyCurrentPeriod())
+    .valueOrErrorMessage(wrapErr("invalid period"))
+  let payment = if (i.payments.size() == 1) then i.payments[0] else throwErr(wrapErr("invalid payments"))
+  let paymentAssetId = if (payment.assetId == lpAssetIdOrFail) then lpAssetIdOrFail else throwErr("invalid payment asset")
+  let paymentAmount = if (payment.amount > 0) then payment.amount else throwErr("invalid payment amount")
+  let withdrawal = factoryAddressOrFail.getInteger(keyWithdrawal()).valueOrElse(0)
+
+  let actions = [
+    ScriptTransfer(factoryAddressOrFail, paymentAmount, paymentAssetId)
+  ]
+
+  # increase total withdrawal amount
+  strict factoryActions = [
+    factoryAddressOrFail.invoke("integerEntry", [
+      keyWithdrawal(),
+      withdrawal + paymentAmount
+    ], []),
+    factoryAddressOrFail.invoke("stringEntry", [
+      keyWithdrawalRequest(userAddress, i.transactionId),
+      valueWithdrawalRequest(PENDING, paymentAmount, currentPeriodOrFail + 1, unit)
+    ], [])
+  ]
+
+  (actions, factoryActions)
+}
+
+@Callable(i)
+func cancelWithdraw(userAddressBytes: ByteVector, txId: ByteVector) = {
+  strict checkCaller = i.onlyFactory()
+  let userAddress = Address(userAddressBytes)
+  let withdrawalRequestOption = factoryAddressOrFail
+    .getString(keyWithdrawalRequest(userAddress, txId))
+    .valueOrErrorMessage(wrapErr("invalid withdrawal request"))
+  let currentPeriodOrFail =
+    factoryAddressOrFail.getInteger(keyCurrentPeriod())
+    .valueOrErrorMessage(wrapErr("invalid period"))
+  let (status, lpAssetAmount, targetPeriod, claimTxId) = parseWithdrawalRequestValueOrFail(withdrawalRequestOption)
+  strict checks = [
+    status == PENDING || throwErr("invalid withdrawal request status"),
+    targetPeriod > currentPeriodOrFail || throwErr("invalid withdrawal request period")
+  ]
+
+  let withdrawal = factoryAddressOrFail.getInteger(keyWithdrawal())
+    .valueOrErrorMessage(wrapErr("invalid total withdrawal amount"))
+  strict factoryActions = [
+    # decrease total withdrawal amount
+    factoryAddressOrFail.invoke("integerEntry", [
+      keyWithdrawal(),
+      if (withdrawal >= lpAssetAmount)
+        then withdrawal - lpAssetAmount
+        else throwErr("invalid withdrawal amount")
+    ], []),
+    factoryAddressOrFail.invoke("deleteEntry", [
+      keyWithdrawalRequest(userAddress, txId)
+    ], []),
+    factoryAddressOrFail.invoke("transferAsset", [
+      userAddressBytes, lpAssetAmount, lpAssetIdOrFail
+    ], [])
+  ]
+  (nil, factoryActions)
+}
+
+@Callable(i)
+func claimWaves(userAddressBytes: ByteVector, txId: ByteVector) = {
+  strict checkCaller = i.onlyFactory()
+  let userAddress = Address(userAddressBytes)
+  let currentPeriodOrFail =
+    factoryAddressOrFail.getInteger(keyCurrentPeriod()).valueOrErrorMessage(wrapErr("invalid period"))
+  let withdrawalRequestOption = factoryAddressOrFail
+    .getString(keyWithdrawalRequest(userAddress, txId))
+    .valueOrErrorMessage(wrapErr("invalid withdrawal request"))
+  let (status, lpAssetAmount, targetPeriod, claimTxId) = parseWithdrawalRequestValueOrFail(withdrawalRequestOption)
+  if (status == FINISHED) then {
+    throwErr("invalid withdrawal request status")
+  } else if (currentPeriodOrFail < targetPeriod) then {
+    throwErr("invalid withdrawal request period")
+  } else {
+    let priceOrFail =
+      factoryAddressOrFail.getInteger(keyPriceForPeriod(targetPeriod)).valueOrErrorMessage(wrapErr("invalid price"))
+    let amount = if (priceOrFail > 0) then fraction(lpAssetAmount, priceOrFail, SCALE8) else 0
+    let factoryActions = [
+      factoryAddressOrFail.invoke("stringEntry", [
+        keyWithdrawalRequest(userAddress, txId),
+        valueWithdrawalRequest(FINISHED, lpAssetAmount, targetPeriod, i.transactionId)
+      ], []),
+      factoryAddressOrFail.invoke("transferWaves", [userAddressBytes, amount], [])
+    ]
+    (nil, factoryActions)
+  }
+}
+
+@Callable(i)
+func processBlocks(userAddressBytes: ByteVector) = {
+  strict checkCaller = i.onlyFactory()
+  let userAddress = Address(userAddressBytes)
+  let currentPeriodOrFail =
+    factoryAddressOrFail.getInteger(keyCurrentPeriod())
+    .valueOrErrorMessage(wrapErr("invalid period"))
+  let periodLength =
+    factoryAddressOrFail.getInteger(keyPeriodLength())
+    .valueOrErrorMessage(wrapErr("invalid period length"))
+  let currentStartHeight = factoryAddressOrFail
+    .getInteger(keyStartHeight(currentPeriodOrFail))
+    .valueOrErrorMessage(wrapErr("invalid start height"))
+  let currentPriceOrFail =
+    factoryAddressOrFail.getInteger(keyPriceForPeriod(currentPeriodOrFail))
+    .valueOrErrorMessage(wrapErr("invalid price"))
+  let nextBlockToProcess = factoryAddressOrFail
+    .getInteger(keyNextBlockToProcess())
+    .valueOrErrorMessage(wrapErr("invalid next block to process"))
+
+  let periodEndHeight = currentStartHeight + periodLength - 1
+  let blocksProcessingBatchSizeMax = 40
+
+  # do not process blocks not in current period
+  let blocksProcessingBatchSize = if (
+    height >= nextBlockToProcess
+    && (nextBlockToProcess >= currentStartHeight || currentPeriodOrFail == 0)
+    && nextBlockToProcess <= periodEndHeight
+  ) then {
+    min([periodEndHeight - nextBlockToProcess + 1, blocksProcessingBatchSizeMax])
+  } else {
+    throwErr(wrapErr("invalid target block"))
+  }
+
+  let blockProcessingReward = factoryAddressOrFail
+    .getInteger(keyBlockProcessingReward())
+    .valueOrErrorMessage(wrapErr("invalid block processing reward"))
+  let blockProcessingRewardByGenerator = blockProcessingReward / blocksProcessingBatchSize
+  let blockProcessingRewardByGeneratorRemainder = blockProcessingReward - blockProcessingRewardByGenerator * blocksProcessingBatchSize
+  
+  func map(acc: (Int, Int), inc: Int) = {
+    if (inc >= blocksProcessingBatchSize) then {
+      acc
+    } else {
+      let targetBlockHeight = nextBlockToProcess + inc
+      let targetBlockInfo = blockInfoByHeight(targetBlockHeight).valueOrErrorMessage(wrapErr("invalid block info"))
+      let treasuryRewardOrFail = rewardForOption(targetBlockInfo.rewards, proxyTreasuryAddressOrFail)
+        .valueOrErrorMessage(wrapErr("invalid treasury reward for height " + targetBlockHeight.toString()))
+      let generator = targetBlockInfo.generator
+      let available = factoryAddressOrFail.getInteger(keyAvailable(generator)).valueOrElse(0)
+
+      let callerReward = if (inc == blocksProcessingBatchSize - 1) then {
+        blockProcessingRewardByGenerator + blockProcessingRewardByGeneratorRemainder
+      } else {
+        blockProcessingRewardByGenerator
+      }
+
+      let lpAssetAmount = if (currentPriceOrFail > 0)
+        then fraction(treasuryRewardOrFail - callerReward, SCALE8, currentPriceOrFail)
+        else 0
+      
+      strict factoryActionsSingle = [
+        factoryAddressOrFail.invoke("stringEntry", [
+          keyBlockProcessed(targetBlockHeight),
+          makeString([
+            i.transactionId.toBase58String(),
+            currentPeriodOrFail.toString(),
+            generator.toString(),
+            userAddressBytes.toBase58String(),
+            treasuryRewardOrFail.toString(),
+            callerReward.toString(),
+            lpAssetAmount.toString()
+          ], SEP)
+        ], []),
+        factoryAddressOrFail.invoke("integerEntry", [
+          keyAvailable(generator),
+          available + lpAssetAmount
+        ], [])
+      ]
+      let (lpAssetAcc, rewardAcc) = acc
+      (lpAssetAcc + lpAssetAmount, rewardAcc + treasuryRewardOrFail)
+    }
+  }
+
+  let list = [
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+    10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+    20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+    30, 31, 32, 33, 34, 35, 36, 37, 38, 39
+  ]
+  strict (lpAssetAmountTotal, rewardAmountTotal) = FOLD<40>(list, (0, 0), map)
+
+  let rewardToMainTreasuryAmount = rewardAmountTotal - blockProcessingReward
+  let invested = factoryAddressOrFail.getInteger(keyInvested(unit)).valueOrElse(0)
+
+  strict actions = [
+    factoryAddressOrFail.invoke("reissue", [
+      lpAssetAmountTotal
+    ], []),
+    factoryAddressOrFail.invoke("integerEntry", [
+      keyNextBlockToProcess(),
+      nextBlockToProcess + blocksProcessingBatchSize
+    ], []),
+    factoryAddressOrFail.invoke("transferFromProxyTreasury", [
+      mainTreasuryAddressOrFail.bytes,
+      rewardToMainTreasuryAmount
+    ], []),
+    factoryAddressOrFail.invoke("transferFromProxyTreasury", [
+      userAddressBytes,
+      blockProcessingReward
+    ], []),
+    # increase invested amount
+    factoryAddressOrFail.invoke("integerEntry", [
+      keyInvested(unit), invested + rewardToMainTreasuryAmount
+    ], [])
+  ]
+
+  (nil, unit)
+}
+
+@Verifier(tx)
+func verify() = {
+  let publicKey = match (getManagerPublicKeyOrUnit()) {
+      case pub:ByteVector => pub 
+      case _ => tx.senderPublicKey
+  }
+
+  sigVerify(tx.bodyBytes, tx.proofs[0], publicKey)
+}
