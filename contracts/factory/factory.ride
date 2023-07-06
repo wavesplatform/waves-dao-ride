@@ -251,7 +251,7 @@ func finalize(
 
 # Returned values:
 #
-# _1 = minPaymentAmount
+# _1 = wavesToClaimPaymentAmount
 # _2 = newInvestedWavesAmount
 # _3 = newDonatedWavesAmountNew
 # _4 = newPrice

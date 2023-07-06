@@ -276,9 +276,9 @@ func finalize(
     || (
       paymentOption != unit
       && paymentAssetId == unit
-      && paymentAmount >= paymentAmountMin
+      && paymentAmount == paymentAmountMin
     )
-  ) then true else throwErr("invalid payments, payment amount min: " + paymentAmountMin.toString())
+  ) then true else throwErr("invalid payments, payment amount should be: " + paymentAmountMin.toString())
 
   let actions = if (paymentOption != unit) then [
     ScriptTransfer(factoryAddressOrFail, paymentAmount, paymentAssetId)
@@ -306,7 +306,7 @@ func finalize(
 
 # Returned values:
 #
-# _1 = minPaymentAmount
+# _1 = wavesToClaimPaymentAmount
 # _2 = newInvestedWavesAmount
 # _3 = newDonatedWavesAmountNew
 # _4 = newPrice
