@@ -249,6 +249,15 @@ func finalize(
   )
 }
 
+# Returned values:
+#
+# _1 = minPaymentAmount
+# _2 = newInvestedWavesAmount
+# _3 = newDonatedWavesAmountNew
+# _4 = newPrice
+# _5 = lpAssetAmountToBurn 
+# _6 = lpAssetNewQuantity
+#
 @Callable(i)
 func finalizeREADONLY(
   newTreasuryVolumeInWaves: Int,
