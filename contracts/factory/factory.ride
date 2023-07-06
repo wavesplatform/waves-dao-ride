@@ -250,6 +250,25 @@ func finalize(
 }
 
 @Callable(i)
+func finalizeREADONLY(
+  newTreasuryVolumeInWaves: Int,
+  pwrManagersBonusInWaves: Int,
+  treasuryVolumeDiffAllocationCoef: Int
+) = {
+  (
+    nil,
+    calculatorAddressOrFail.reentrantInvoke(
+      "finalizeREADONLY",
+      [
+        newTreasuryVolumeInWaves,
+        pwrManagersBonusInWaves,
+        treasuryVolumeDiffAllocationCoef
+      ], []
+    )
+  )
+}
+
+@Callable(i)
 func claimLP() =
   (nil, calculatorAddressOrFail.reentrantInvoke("claimLP", [i.caller.bytes], i.payments))
 
