@@ -16,56 +16,81 @@
 | `%s__nextBlockToProcess`      | `Int`    | Next block height to process  |
 
 ### User state
+
 | key                                         | type     | description                        |
 | :------------------------------------------ | :------- | :--------------------------------- |
 | `%s%s__available__<userAddress>`            | `Int`    | Available LP Asset amount to Claim |
 | `%s%s__claimed__<userAddress>`              | `Int`    | LP Asset amount already claimed    |
-| `%s%s%s__withdrawal__<userAddress>__<txId>` | `String` | Withdrawal request parameters       |
+| `%s%s%s__withdrawal__<userAddress>__<txId>` | `String` | Withdrawal request parameters      |
+
 ```
 # Withdrawal request value format
 %s%d%d%s__<status>__<lpAssetAmount>__<targetPeriod>__<claimTxId>
 ```
 
+---
 
 ### User functions
+
 #### Claim LP
+
 User can claim available LP Assets
+
 ```
 @Callable(i)
 func claimLP()
 ```
 #### Invest Waves
+
 User attach Waves payment and receive LP Asset at the current price
+
 ```
 @Callable(i)
 func invest()
 ```
+
 #### Withdraw request
+
 User attach LP Asset and creates withdraw request.
 Claim can be done at the next Period
+
 ```
 @Callable(i)
 func withdraw()
 ```
+
 #### Withdraw request cancellation
+
 Cancel withdraw request. 
 `txIdStr` - withdraw request TxId
+
 ```
 @Callable(i)
 func cancelWithdraw(txIdStr: String)
 ```
+
 #### Claim Waves
+
 Claim Waves from withdraw request at current price. 
 `txIdStr` - withdraw request TxId
+
 ```
 func claimWaves(txIdStr: String)
 ```
+
+---
+
 ### Block processing
-Process block miners rewards. 
+
+Process block miners rewards.
+
 ```
 @Callable(i)
 func processBlocks()
 ```
+
+---
+
 ### Finalize evaluation
 Evaluate finalization results and required Waves amount to finish finalization.
 Arguments:
@@ -85,6 +110,7 @@ Return values:
 - `_4 = newPrice` - new Price for next Period
 - `_5 = lpAssetAmountToBurn` - Amount of LP Assets burned for all withdrawals in current Period
 - `_6 = lpAssetNewQuantity` - LP Asset new quantity
+
 ```
 @Callable(i)
 func finalizeREADONLY(
@@ -94,7 +120,10 @@ func finalizeREADONLY(
 )
 ```
 
+---
+
 ### Finalization
+
 Finalize current period and calculate new Price. 
 - Payment should include exact Waves amount needed to process all withdrawal requests.
 - Can only be called by Main Treasury
@@ -108,6 +137,7 @@ Arguments:
   - `100000000` All Profit/Loss is allocated to Invested part
   - `-60000000` 60% of Invested Profit/Loss part is added to Donated part
   - `44000000` 44% of Donated Profit/Loss part is added to Invested part
+
 ```
 @Callable(i)
 func finalize(
@@ -117,9 +147,14 @@ func finalize(
 )
 ```
 
+---
+
 ### Helper functions
+
 - Can only be called by Calculator
-#### Factory state functions 
+
+#### Factory state functions
+
 ```
 @Callable(i)
 func stringEntry(key: String, val: String)
@@ -136,7 +171,9 @@ func binaryEntry(key: String, val: ByteVector)
 @Callable(i)
 func deleteEntry(key: String)
 ```
+
 #### LP Asset functions
+
 ```
 @Callable(i)
 func reissue(amount: Int)
@@ -144,7 +181,9 @@ func reissue(amount: Int)
 @Callable(i)
 func burn(amount: Int)
 ```
+
 #### Asset transfer functions
+
 ```
 @Callable(i)
 func transferAsset(recipientBytes: ByteVector, amount: Int, assetId: ByteVector)
@@ -152,7 +191,9 @@ func transferAsset(recipientBytes: ByteVector, amount: Int, assetId: ByteVector)
 @Callable(i)
 func transferWaves(recipientBytes: ByteVector, amount: Int)
 ```
+
 #### Transfer Waves from Proxy treasury
+
 ```
 @Callable(i)
 func transferFromProxyTreasury(recipientBytes: ByteVector, rewardsAmount: Int)
