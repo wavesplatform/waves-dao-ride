@@ -46,7 +46,7 @@ describe(`[${process.pid}] calculator: claim waves`, () => {
       chainId
     }, accounts.user1.seed))
 
-    const finalizePaymentAmount = 100e8
+    const finalizePaymentAmount = 198809133
     const newTreasuryVolumeInWaves = 1100 * 1e8
     const pwrManagersBonusinWaves = 100 * 1e8
     const treasuryVolumeDiffAllocationCoef = 0
@@ -77,7 +77,7 @@ describe(`[${process.pid}] calculator: claim waves`, () => {
       chainId
     }, accounts.user1.seed))
 
-    const transfer = stateChanges.invokes[0].stateChanges.invokes[2].stateChanges.transfers[0]
+    const transfer = stateChanges.invokes[0].stateChanges.invokes[1].stateChanges.transfers[0]
 
     const { value: price } = await api.addresses.fetchDataKey(accounts.factory.address, '%s%d__price__1')
     const profitRaw = newTreasuryVolumeInWaves - investedWavesAmount

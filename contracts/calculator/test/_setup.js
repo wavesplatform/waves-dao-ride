@@ -15,6 +15,7 @@ import {
 const nonceLength = 3
 const calculatorPath = format({ dir: 'contracts/calculator', base: 'calculator.ride' })
 const factoryPath = format({ dir: 'contracts/factory', base: 'factory.ride' })
+const proxyTreasuryPath = format({ dir: 'contracts/treasury', base: 'proxy_treasury.ride' })
 const scale8 = 1e8
 
 export const setup = async ({
@@ -110,6 +111,7 @@ export const setup = async ({
 
   await setScriptFromFile(calculatorPath, accounts.calculator.seed)
   await setScriptFromFile(factoryPath, accounts.factory.seed)
+  await setScriptFromFile(proxyTreasuryPath, daoSeed)
 
   return { accounts, lpAssetId, periodLength, blockProcessingReward, price }
 }

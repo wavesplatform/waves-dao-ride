@@ -7,7 +7,7 @@ import { setupAccounts } from './_setup.js'
 chai.use(chaiAsPromised)
 const { expect } = chai
 
-describe(`[${process.pid}] treasury: admins`, () => {
+describe(`[${process.pid}] factory: admins`, () => {
   let dataTx, accounts
 
   before(async () => {
@@ -19,8 +19,24 @@ describe(`[${process.pid}] treasury: admins`, () => {
         data: [{ key: 'foo', type: 'string', value: 'bar' }],
         chainId
       },
-      accounts.treasury.seed
+      accounts.factory.seed
     )
+  })
+
+  it('owner can set config address if it was not specified', async () => {
+    const setConfigAddressTx = data({
+      additionalFee: 4e5,
+      data: [
+        {
+          key: '%s__config',
+          type: 'string',
+          value: accounts.config.address
+        }
+      ],
+      chainId
+    }, accounts.factory.seed)
+
+    return expect(broadcastAndWait(setConfigAddressTx)).to.be.fulfilled
   })
 
   it('can set admins by owner initially', async () => {
@@ -40,24 +56,8 @@ describe(`[${process.pid}] treasury: admins`, () => {
         }
       ],
       chainId
-    }, accounts.treasury.seed)
+    }, accounts.factory.seed)
     return expect(broadcastAndWait(setAdminsTx)).to.be.fulfilled
-  })
-
-  it('owner can set config address if it was not specified', async () => {
-    const setConfigAddressTx = data({
-      additionalFee: 4e5,
-      data: [
-        {
-          key: '%s__config',
-          type: 'string',
-          value: accounts.config.address
-        }
-      ],
-      chainId
-    }, accounts.treasury.seed)
-
-    return expect(broadcastAndWait(setConfigAddressTx)).to.be.fulfilled
   })
 
   it('owner is denied after admins and config address are specified', async () => {
@@ -69,7 +69,7 @@ describe(`[${process.pid}] treasury: admins`, () => {
       additionalFee: 4e5,
       data: [
         {
-          key: `proposal_allow_broadcast_${accounts.treasury.address}_${dataTx.id}`,
+          key: `proposal_allow_broadcast_${accounts.factory.address}_${dataTx.id}`,
           type: 'boolean',
           value: true
         }

@@ -7,12 +7,12 @@ import { setupAccounts } from './_setup.js'
 chai.use(chaiAsPromised)
 const { expect } = chai
 
-describe(`[${process.pid}] treasury: vote for allowed tx`, () => {
-  let dataTx, treasury, accounts
+describe(`[${process.pid}] factory: vote for allowed tx`, () => {
+  let dataTx, factory, accounts
 
   before(async () => {
     accounts = await setupAccounts()
-    treasury = accounts.treasury.address
+    factory = accounts.factory.address
 
     await broadcastAndWait(data({
       additionalFee: 4e5,
@@ -24,7 +24,7 @@ describe(`[${process.pid}] treasury: vote for allowed tx`, () => {
         }
       ],
       chainId
-    }, accounts.treasury.seed))
+    }, accounts.factory.seed))
 
     // set admins
     const setAdminsTx = data({
@@ -43,7 +43,7 @@ describe(`[${process.pid}] treasury: vote for allowed tx`, () => {
         }
       ],
       chainId
-    }, accounts.treasury.seed)
+    }, accounts.factory.seed)
     await broadcastAndWait(setAdminsTx)
 
     dataTx = data(
@@ -52,7 +52,7 @@ describe(`[${process.pid}] treasury: vote for allowed tx`, () => {
         data: [{ key: 'foo', type: 'string', value: 'bar' }],
         chainId
       },
-      accounts.treasury.seed
+      accounts.factory.seed
     )
   })
 
@@ -63,7 +63,7 @@ describe(`[${process.pid}] treasury: vote for allowed tx`, () => {
   it('first votes should increment votes count', async () => {
     await broadcastAndWait(invokeScript(
       {
-        dApp: treasury,
+        dApp: factory,
         call: {
           function: 'voteForTxId',
           args: [{ type: 'string', value: dataTx.id }]
@@ -74,7 +74,7 @@ describe(`[${process.pid}] treasury: vote for allowed tx`, () => {
     ))
     await broadcastAndWait(invokeScript(
       {
-        dApp: treasury,
+        dApp: factory,
         call: {
           function: 'voteForTxId',
           args: [{ type: 'string', value: dataTx.id }]
@@ -84,7 +84,7 @@ describe(`[${process.pid}] treasury: vote for allowed tx`, () => {
       accounts.admin2.seed
     ))
 
-    const allowTxIdVotes = await api.addresses.data(treasury, { matches: encodeURIComponent(`%s%s%s__allowTxId__${dataTx.id}__.+`) })
+    const allowTxIdVotes = await api.addresses.data(factory, { matches: encodeURIComponent(`%s%s%s__allowTxId__${dataTx.id}__.+`) })
 
     expect(allowTxIdVotes).to.deep.include.members([
       {
@@ -103,7 +103,7 @@ describe(`[${process.pid}] treasury: vote for allowed tx`, () => {
   it('last vote should approve tx and remove voting data', async () => {
     const voteTx = invokeScript(
       {
-        dApp: treasury,
+        dApp: factory,
         call: {
           function: 'voteForTxId',
           args: [{ type: 'string', value: dataTx.id }]
@@ -146,7 +146,7 @@ describe(`[${process.pid}] treasury: vote for allowed tx`, () => {
   it('vote should be failed if tx is already allowed', async () => {
     const voteTx = invokeScript(
       {
-        dApp: treasury,
+        dApp: factory,
         call: {
           function: 'voteForTxId',
           args: [{ type: 'string', value: dataTx.id }]

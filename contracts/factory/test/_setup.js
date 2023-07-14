@@ -22,7 +22,14 @@ export const setupAccounts = async () => {
     'factory',
     'calculator',
     'treasury',
-    'user1'
+    'user1',
+    'config',
+    'votingResult',
+    'admin1',
+    'admin2',
+    'admin3',
+    'admin4',
+    'admin5'
   ]
   const accounts = Object.fromEntries(names.map((item) => {
     const seed = `${item}#${nonce}`
@@ -49,6 +56,18 @@ export const setupAccounts = async () => {
     ],
     chainId
   }, accounts.factory.seed))
+
+  await broadcastAndWait(data({
+    additionalFee: 4e5,
+    data: [
+      {
+        key: 'contract_voting_result',
+        type: 'string',
+        value: accounts.votingResult.address
+      }
+    ],
+    chainId
+  }, accounts.config.seed))
 
   const accountsInfo = Object.entries(accounts)
     .map(([name, { seed, address }]) => [name, address])
