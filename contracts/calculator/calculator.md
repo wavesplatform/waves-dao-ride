@@ -1,5 +1,5 @@
 ### Required state entries
 
-| key           | type     |
-| :------------ | :------- |
-| `%s__factory` | `String` |
+| key           | type     | description     |
+| :------------ | :------- | :-------------- |
+| `%s__factory` | `String` | Factory address |
