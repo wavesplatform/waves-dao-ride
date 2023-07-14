@@ -72,11 +72,11 @@ Arguments:
 - `newTreasuryVolumeInWaves` - Total treasury volume in Waves, include Invested and Donated amounts
 - `pwrManagersBonusInWaves` - Power Manager bonus in Waves, this amount is deducted from Total profit when LP Price is calculated
 - `treasuryVolumeDiffAllocationCoef` - Allocation coefficient ([-100000000; 100000000]), Profit/Loss distribution proportion.
-  - `0` - Profit/Loss distributed to Invested and Donated evenly by their proportion amount
+  - `0` - Profit/Loss distributed to Invested and Donated evenly by their amounts proportions
   - `-100000000` All Profit/Loss is allocated to Donated part
   - `100000000` All Profit/Loss is allocated to Invested part
-  - `-60000000` 60% of Invested part Profit/Loss is added to Donated part
-  - `44000000` 44% of Donated part Profit/Loss is added to Invested part
+  - `-60000000` 60% of Invested Profit/Loss part is added to Donated part
+  - `44000000` 44% of Donated Profit/Loss part is added to Invested part
 
 Return values:
 - `_1 = wavesToClaimPaymentAmount` - amount of Waves in payment needed to finish finalization
@@ -103,11 +103,11 @@ Arguments:
 - `newTreasuryVolumeInWaves` - Total treasury volume in Waves, include Invested and Donated amounts
 - `pwrManagersBonusInWaves` - Power Manager bonus in Waves, this amount is deducted from Total profit when LP Price is calculated
 - `treasuryVolumeDiffAllocationCoef` - Allocation coefficient ([-100000000; 100000000]), Profit/Loss distribution proportion.
-  - `0` - Profit/Loss distributed to Invested and Donated evenly by their proportion amount
+  - `0` - Profit/Loss distributed to Invested and Donated evenly by their amounts proportions
   - `-100000000` All Profit/Loss is allocated to Donated part
   - `100000000` All Profit/Loss is allocated to Invested part
-  - `-60000000` 60% of Invested part Profit/Loss is added to Donated part
-  - `44000000` 44% of Donated part Profit/Loss is added to Invested part
+  - `-60000000` 60% of Invested Profit/Loss part is added to Donated part
+  - `44000000` 44% of Donated Profit/Loss part is added to Invested part
 ```
 @Callable(i)
 func finalize(
