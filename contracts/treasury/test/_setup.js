@@ -11,20 +11,13 @@ import {
 } from '../../../utils/api.js'
 
 const nonceLength = 3
-const ridePath = 'contracts/treasury'
-const treasuryPath = format({ dir: ridePath, base: 'proxy_treasury.ride' })
+const proxyTreasuryPath = format({ dir: 'contracts/treasury', base: 'proxy_treasury.ride' })
 
-export const setupAccounts = async () => {
+export const setup = async () => {
   const nonce = wc.random(nonceLength, 'Buffer').toString('hex')
   const names = [
-    'config',
-    'votingResult',
-    'treasury',
-    'admin1',
-    'admin2',
-    'admin3',
-    'admin4',
-    'admin5',
+    'factory',
+    'proxyTreasury',
     'user1'
   ]
   const accounts = Object.fromEntries(names.map((item) => {
@@ -38,19 +31,19 @@ export const setupAccounts = async () => {
   }, baseSeed)
   await broadcastAndWait(massTransferTx)
 
-  await setScriptFromFile(treasuryPath, accounts.treasury.seed)
+  await setScriptFromFile(proxyTreasuryPath, accounts.proxyTreasury.seed)
 
   await broadcastAndWait(data({
     additionalFee: 4e5,
     data: [
       {
-        key: 'contract_voting_result',
+        key: '%s__factory',
         type: 'string',
-        value: accounts.votingResult.address
+        value: accounts.factory.address
       }
     ],
     chainId
-  }, accounts.config.seed))
+  }, accounts.proxyTreasury.seed))
 
   const accountsInfo = Object.entries(accounts)
     .map(([name, { seed, address }]) => [name, address])

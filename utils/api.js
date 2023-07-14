@@ -10,7 +10,7 @@ export const { apiBase, chainId, baseSeed, daoSeed } = env(process.env.NETWORK)
 export const daoAddress = () => address(daoSeed, chainId)
 
 export const api = create(apiBase)
-export const largeNumbeConvertHeader = { headers: { Accept: 'application/json;large-significand-format=string' } }
+export const largeNumberConvertHeader = { headers: { Accept: 'application/json;large-significand-format=string' } }
 
 export const separator = '__'
 

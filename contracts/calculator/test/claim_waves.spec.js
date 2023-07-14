@@ -48,7 +48,7 @@ describe(`[${process.pid}] calculator: claim waves`, () => {
 
     const finalizePaymentAmount = 198809133
     const newTreasuryVolumeInWaves = 1100 * 1e8
-    const pwrManagersBonusinWaves = 100 * 1e8
+    const pwrManagersBonusInWaves = 100 * 1e8
     const treasuryVolumeDiffAllocationCoef = 0
     const [{ quantity }] = await api.assets.fetchDetails([lpAssetId])
     await broadcastAndWait(invokeScript({
@@ -57,7 +57,7 @@ describe(`[${process.pid}] calculator: claim waves`, () => {
         function: 'finalize',
         args: [
           { type: 'integer', value: newTreasuryVolumeInWaves },
-          { type: 'integer', value: pwrManagersBonusinWaves },
+          { type: 'integer', value: pwrManagersBonusInWaves },
           { type: 'integer', value: treasuryVolumeDiffAllocationCoef }
         ]
       },
@@ -81,7 +81,7 @@ describe(`[${process.pid}] calculator: claim waves`, () => {
 
     const { value: price } = await api.addresses.fetchDataKey(accounts.factory.address, '%s%d__price__1')
     const profitRaw = newTreasuryVolumeInWaves - investedWavesAmount
-    const profit = profitRaw - pwrManagersBonusinWaves
+    const profit = profitRaw - pwrManagersBonusInWaves
     const expectedPrice = Math.floor((investedWavesAmount + profit) * scale8 / quantity)
     expect(price).to.equal(expectedPrice)
     expect(transfer).to.deep.equal({
