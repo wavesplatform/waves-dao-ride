@@ -3,6 +3,7 @@
 {-# SCRIPT_TYPE ACCOUNT #-}
 
 let SEP = "__"
+let WAVES = "WAVES"
 let contractFilename = "factory.ride"
 
 func wrapErr(s: String) = {
@@ -11,6 +12,10 @@ func wrapErr(s: String) = {
 
 func throwErr(s: String) = {
   throw(wrapErr(s))
+}
+
+func stringToAssetId(s: String) = {
+  if (s == WAVES) then unit else s.fromBase58String()
 }
 
 ######################
@@ -220,6 +225,28 @@ func transferAsset(recepientBytes: ByteVector, amount: Int, assetId: ByteVector)
   if (i.onlyCalculator()) then ([ScriptTransfer(Address(recepientBytes), amount, assetId)], amount) else ([], unit)
 
 @Callable(i)
+func transferAssets(recepientBytes: ByteVector, assetsList: List[String], amountsList: List[String]) = {
+  if (i.onlyCalculator()) then {
+    func addNewTransfer(accum: (List[ScriptTransfer], Int), nextAssetId: String) = {
+      let (transfers, j) = accum
+
+      let newTransfer = ScriptTransfer(
+        Address(recepientBytes),
+        amountsList[j].parseIntValue(),
+        assetsList[j].stringToAssetId()
+      )
+      let updatedTransfers = transfers :+ newTransfer
+      (updatedTransfers, j + 1)
+    }
+
+    let (assetsTransfers, _lastIndex) = FOLD<10>(assetsList, ([], 0), addNewTransfer)
+    (assetsTransfers, unit)
+  } else {
+    ([], unit)
+  }
+}
+
+@Callable(i)
 func transferWaves(recepientBytes: ByteVector, amount: Int) = 
   if (i.onlyCalculator()) then ([ScriptTransfer(Address(recepientBytes), amount, unit)], amount) else ([], unit)
 
@@ -282,8 +309,8 @@ func claimLP() =
   (nil, calculatorAddressOrFail.reentrantInvoke("claimLP", [i.caller.bytes], i.payments))
 
 @Callable(i)
-func claimWaves(txIdStr: String) =
-  (nil, calculatorAddressOrFail.reentrantInvoke("claimWaves", [i.caller.bytes, txIdStr.fromBase58String()], i.payments))
+func claimCollateral(txIdStr: String) =
+  (nil, calculatorAddressOrFail.reentrantInvoke("claimCollateral", [i.caller.bytes, txIdStr.fromBase58String()], i.payments))
 
 @Callable(i)
 func invest() =

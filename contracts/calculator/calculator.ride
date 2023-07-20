@@ -24,6 +24,10 @@ func assetIdToString(assetId: ByteVector|Unit) = {
   }
 }
 
+func stringToAssetId(s: String) = {
+  if (s == WAVES) then unit else s.fromBase58String()
+}
+
 func abs(n: Int) = {
   if (n < 0) then -n else n
 }
@@ -55,6 +59,11 @@ func valueWithdrawalRequest(status: String, lpAssetAmount: Int, targetPeriod: In
   }
   ["%s%d%d%s", status, lpAssetAmount.toString(), targetPeriod.toString(), claimTxIdStr].makeString(SEP)
 }
+func keyPeriodWithdrawalAssetIds(period: Int) = ["%s%d", "periodReward", period.toString()].makeString(SEP)
+func keyPeriodWithdrawalAmounts(period: Int) = ["%s%d", "periodRewardAmount", period.toString()].makeString(SEP)
+let keyMinHeightForWithdraw = ["%s", "minHeightForWithdraw"].makeString(SEP)
+let keyMaxHeightForWithdraw = ["%s", "maxHeightForWithdraw"].makeString(SEP)
+
 func parseWithdrawalRequestValueOrFail(s: String) = {
   let parts = s.split(SEP)
   if (parts.size() == 5) then {
@@ -90,7 +99,9 @@ let proxyTreasuryAddressOption = match factoryAddressOption {
   }
   case _: Unit => unit
 }
-let proxyTreasuryAddressOrFail = proxyTreasuryAddressOption.valueOrErrorMessage(wrapErr("invalid proxy treasury address"))
+let proxyTreasuryAddressOrFail = proxyTreasuryAddressOption.valueOrErrorMessage(
+  wrapErr("invalid proxy treasury address")
+)
 
 let mainTreasuryAddressOption  = match factoryAddressOption {
   case a: Address => match a.getString(keyMainTreasuryAddress()) {
@@ -191,7 +202,14 @@ func finalizeINTERNAL(
   let finalInvestedWavesAmount = investedWavesAmountNew - paymentAmountMin
   let lpAssetFinalQuantity = lpAssetQuantity - lpAssetAmountToBurn
   
-  (paymentAmountMin, finalInvestedWavesAmount, donatedWavesAmountNew, newPrice, lpAssetAmountToBurn, lpAssetFinalQuantity)
+  (
+    paymentAmountMin,
+    finalInvestedWavesAmount,
+    donatedWavesAmountNew,
+    newPrice,
+    lpAssetAmountToBurn,
+    lpAssetFinalQuantity
+  )
 }
 
 @Callable(i)
@@ -259,7 +277,7 @@ func finalize(
 
   # Finalize calcualtions
   let (
-    paymentAmountMin, 
+    paymentAmountMin,
     finalInvestedWavesAmount, 
     donatedWavesAmountNew, 
     newPrice, 
@@ -268,25 +286,26 @@ func finalize(
   ) = finalizeINTERNAL(newTreasuryVolumeInWaves, pwrManagersBonusInWaves, treasuryVolumeDiffAllocationCoef)
 
   let newPeriod = currentPeriodOrFail + 1
-  let paymentOption = if (i.payments.size() > 0) then i.payments[0] else unit
-  let paymentAmount = paymentOption.value().amount
-  let paymentAssetId = paymentOption.value().assetId
-  strict checkPayment = if (
-    paymentAmountMin == 0
-    || (
-      paymentOption != unit
-      && paymentAssetId == unit
-      && paymentAmount == paymentAmountMin
-    )
-  ) then true else throwErr("invalid payments, payment amount should be: " + paymentAmountMin.toString())
 
-  let actions = if (paymentOption != unit) then [
-    ScriptTransfer(factoryAddressOrFail, paymentAmount, paymentAssetId)
-  ] else nil
+  func addNewAction(actions: (List[ScriptTransfer], String, String), payment: AttachedPayment) = {
+    let (scriptTransfers, assetIdsString, amountsString) = actions
+    let paymentAmount = payment.amount
+    let paymentAssetId = payment.assetId
+
+    let newAssetIdsString = "%s" + [assetIdsString, paymentAssetId.assetIdToString()].makeString(SEP)
+    let newAmountsString = "%d" + [amountsString, paymentAmount.toString()].makeString(SEP)
+    let newScriptTransfer = ScriptTransfer(factoryAddressOrFail, paymentAmount, paymentAssetId)
+
+    (scriptTransfers :+ newScriptTransfer, newAssetIdsString, newAmountsString)
+  }
+
+  let (scriptTransfers, AssetIds, Amounts) = FOLD<10>(i.payments, ([], "", ""), addNewAction)
 
   let factoryActions = [
     # write power manager bonus
-    factoryAddressOrFail.invoke("integerEntry", [keyPowerManagerBonus(currentPeriodOrFail), pwrManagersBonusInWaves], []),
+    factoryAddressOrFail.invoke(
+      "integerEntry", [keyPowerManagerBonus(currentPeriodOrFail), pwrManagersBonusInWaves], []
+    ),
     # update period
     factoryAddressOrFail.invoke("integerEntry", [keyCurrentPeriod(), newPeriod], []),
     # update price
@@ -298,10 +317,13 @@ func finalize(
     # new invested amount
     factoryAddressOrFail.invoke("integerEntry", [keyInvested(unit), finalInvestedWavesAmount], []),
     # new donated amount
-    factoryAddressOrFail.invoke("integerEntry", [keyDonated(unit), donatedWavesAmountNew], [])
+    factoryAddressOrFail.invoke("integerEntry", [keyDonated(unit), donatedWavesAmountNew], []),
+    # new period treasury
+    factoryAddressOrFail.invoke("stringEntry", [keyPeriodWithdrawalAssetIds(newPeriod), AssetIds], []),
+    factoryAddressOrFail.invoke("stringEntry", [keyPeriodWithdrawalAmounts(newPeriod), Amounts], [])
   ]
 
-  (actions, factoryActions)
+  (scriptTransfers, factoryActions)
 }
 
 # Returned values:
@@ -454,7 +476,7 @@ func cancelWithdraw(userAddressBytes: ByteVector, txId: ByteVector) = {
 }
 
 @Callable(i)
-func claimWaves(userAddressBytes: ByteVector, txId: ByteVector) = {
+func claimCollateral(userAddressBytes: ByteVector, txId: ByteVector) = {
   strict checkCaller = i.onlyFactory()
   let userAddress = Address(userAddressBytes)
   let currentPeriodOrFail =
@@ -476,7 +498,15 @@ func claimWaves(userAddressBytes: ByteVector, txId: ByteVector) = {
         keyWithdrawalRequest(userAddress, txId),
         valueWithdrawalRequest(FINISHED, lpAssetAmount, targetPeriod, i.transactionId)
       ], []),
-      factoryAddressOrFail.invoke("transferWaves", [userAddressBytes, amount], [])
+
+      let assetsList = factoryAddressOrFail.getStringValue(
+        keyPeriodWithdrawalAssetIds(currentPeriodOrFail)
+      ).split_51C(SEP).removeByIndex(0)
+      let amountsList = factoryAddressOrFail.getStringValue(
+        keyPeriodWithdrawalAmounts(currentPeriodOrFail)
+      ).split_51C(SEP).removeByIndex(0)
+
+      factoryAddressOrFail.invoke("transferAssets", [userAddressBytes, assetsList, amountsList], [])
     ]
     (nil, factoryActions)
   }

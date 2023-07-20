@@ -1,15 +1,15 @@
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
-import { api, chainId, broadcastAndWait } from '../../../utils/api.js'
+import { api, chainId, broadcastAndWait, baseSeed } from '../../../utils/api.js'
 import { setup } from './_setup.js'
-import { invokeScript } from '@waves/waves-transactions'
+import { invokeScript, transfer, issue } from '@waves/waves-transactions'
 
 chai.use(chaiAsPromised)
 const { expect } = chai
 
 const scale8 = 1e8
 
-describe(`[${process.pid}] calculator: claim waves`, () => {
+describe(`[${process.pid}] calculator: claim collateral`, () => {
   let accounts, lpAssetId, investedWavesAmount
 
   before(async () => {
@@ -37,8 +37,72 @@ describe(`[${process.pid}] calculator: claim waves`, () => {
     }, accounts.user1.seed))
   })
 
-  it('user should successfully claim waves after finalization', async () => {
+  it('user should successfully claim assets after finalization', async () => {
     const paymentAmount = 1e8
+
+    const { id: firstAssetId } = await broadcastAndWait(
+      issue(
+        {
+          name: "FirstAsset",
+          description: "",
+          quantity: 10e8,
+          decimals: 8,
+          reissuable: true,
+          chainId,
+        },
+        baseSeed
+      )
+    );
+
+    await broadcastAndWait(transfer({
+      recipient: accounts.mainTreasury.address,
+      amount: 10e8,
+      assetId: firstAssetId,
+      additionalFee: 4e5,
+    }, baseSeed));
+
+    const { id: secondAssetId } = await broadcastAndWait(
+      issue(
+        {
+          name: "SecondAsset",
+          description: "",
+          quantity: 10e8,
+          decimals: 8,
+          reissuable: true,
+          chainId,
+        },
+        baseSeed
+      )
+    );
+
+    await broadcastAndWait(transfer({
+      recipient: accounts.mainTreasury.address,
+      amount: 10e8,
+      assetId: secondAssetId,
+      additionalFee: 4e5,
+    }, baseSeed));
+
+    const { id: thirdAssetId } = await broadcastAndWait(
+      issue(
+        {
+          name: "ThirdAsset",
+          description: "",
+          quantity: 10e8,
+          decimals: 8,
+          reissuable: true,
+          chainId,
+        },
+        baseSeed
+      )
+    );
+
+    await broadcastAndWait(transfer({
+      recipient: accounts.mainTreasury.address,
+      amount: 10e8,
+      assetId: thirdAssetId,
+      additionalFee: 4e5,
+    }, baseSeed));
+
     const { id: withdrawTxId } = await broadcastAndWait(invokeScript({
       dApp: accounts.factory.address,
       call: { function: 'withdraw', args: [] },
@@ -46,7 +110,6 @@ describe(`[${process.pid}] calculator: claim waves`, () => {
       chainId
     }, accounts.user1.seed))
 
-    const finalizePaymentAmount = 198809133
     const newTreasuryVolumeInWaves = 1100 * 1e8
     const pwrManagersBonusInWaves = 100 * 1e8
     const treasuryVolumeDiffAllocationCoef = 0
@@ -61,7 +124,11 @@ describe(`[${process.pid}] calculator: claim waves`, () => {
           { type: 'integer', value: treasuryVolumeDiffAllocationCoef }
         ]
       },
-      payment: [{ assetId: null, amount: finalizePaymentAmount }],
+      payment: [
+        { assetId: firstAssetId, amount: paymentAmount },
+        { assetId: secondAssetId, amount: paymentAmount },
+        { assetId: thirdAssetId, amount: paymentAmount },
+      ],
       chainId,
       additionalFee: 4e5
     }, accounts.mainTreasury.seed))
@@ -77,17 +144,29 @@ describe(`[${process.pid}] calculator: claim waves`, () => {
       chainId
     }, accounts.user1.seed))
 
-    const transfer = stateChanges.invokes[0].stateChanges.invokes[1].stateChanges.transfers[0]
+    const stateChangesTransfers = stateChanges.invokes[0].stateChanges.invokes[1].stateChanges.transfers
 
     const { value: price } = await api.addresses.fetchDataKey(accounts.factory.address, '%s%d__price__1')
     const profitRaw = newTreasuryVolumeInWaves - investedWavesAmount
     const profit = profitRaw - pwrManagersBonusInWaves
     const expectedPrice = Math.floor((investedWavesAmount + profit) * scale8 / quantity)
     expect(price).to.equal(expectedPrice)
-    expect(transfer).to.deep.equal({
-      address: accounts.user1.address,
-      asset: null,
-      amount: Math.floor(paymentAmount * price / scale8)
-    })
+    expect(stateChangesTransfers).to.deep.equal([
+      {
+        address: accounts.user1.address,
+        asset: firstAssetId,
+        amount: paymentAmount
+      },
+      {
+        address: accounts.user1.address,
+        asset: secondAssetId,
+        amount: paymentAmount
+      },
+      {
+        address: accounts.user1.address,
+        asset: thirdAssetId,
+        amount: paymentAmount
+      }
+    ])
   })
 })
