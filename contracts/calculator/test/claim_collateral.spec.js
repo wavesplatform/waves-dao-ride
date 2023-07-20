@@ -43,65 +43,65 @@ describe(`[${process.pid}] calculator: claim collateral`, () => {
     const { id: firstAssetId } = await broadcastAndWait(
       issue(
         {
-          name: "FirstAsset",
-          description: "",
+          name: 'FirstAsset',
+          description: '',
           quantity: 10e8,
           decimals: 8,
           reissuable: true,
-          chainId,
+          chainId
         },
         baseSeed
       )
-    );
+    )
 
     await broadcastAndWait(transfer({
       recipient: accounts.mainTreasury.address,
       amount: 10e8,
       assetId: firstAssetId,
-      additionalFee: 4e5,
-    }, baseSeed));
+      additionalFee: 4e5
+    }, baseSeed))
 
     const { id: secondAssetId } = await broadcastAndWait(
       issue(
         {
-          name: "SecondAsset",
-          description: "",
+          name: 'SecondAsset',
+          description: '',
           quantity: 10e8,
           decimals: 8,
           reissuable: true,
-          chainId,
+          chainId
         },
         baseSeed
       )
-    );
+    )
 
     await broadcastAndWait(transfer({
       recipient: accounts.mainTreasury.address,
       amount: 10e8,
       assetId: secondAssetId,
-      additionalFee: 4e5,
-    }, baseSeed));
+      additionalFee: 4e5
+    }, baseSeed))
 
     const { id: thirdAssetId } = await broadcastAndWait(
       issue(
         {
-          name: "ThirdAsset",
-          description: "",
+          name: 'ThirdAsset',
+          description: '',
           quantity: 10e8,
           decimals: 8,
           reissuable: true,
-          chainId,
+          chainId
         },
         baseSeed
       )
-    );
+    )
 
     await broadcastAndWait(transfer({
       recipient: accounts.mainTreasury.address,
       amount: 10e8,
       assetId: thirdAssetId,
-      additionalFee: 4e5,
-    }, baseSeed));
+      additionalFee: 4e5
+    }, baseSeed))
 
     const { id: withdrawTxId } = await broadcastAndWait(invokeScript({
       dApp: accounts.factory.address,
@@ -127,7 +127,7 @@ describe(`[${process.pid}] calculator: claim collateral`, () => {
       payment: [
         { assetId: firstAssetId, amount: paymentAmount },
         { assetId: secondAssetId, amount: paymentAmount },
-        { assetId: thirdAssetId, amount: paymentAmount },
+        { assetId: thirdAssetId, amount: paymentAmount }
       ],
       chainId,
       additionalFee: 4e5
