@@ -37,6 +37,8 @@ func keyManagerPublicKey() = ["%s", "managerPublicKey"].makeString(SEP)
 func keyLpAssetId() = ["%s", "lpAssetId"].makeString(SEP)
 func keyProxyTreasuryAddress() = ["%s", "proxyTreasury"].makeString(SEP)
 func keyMainTreasuryAddress() = ["%s", "mainTreasury"].makeString(SEP)
+func keyBusinessTreasuryAddress() = ["%s", "businessTreasury"].makeString(SEP)
+func keyBusinessTreasuryPart() = ["%s", "businessTreasuryPart"].makeString(SEP)
 func keyInvested(assetId: ByteVector|Unit) = ["%s%s", "invested", assetIdToString(assetId)].makeString(SEP)
 func keyDonated(assetId: ByteVector|Unit) = ["%s%s", "donated", assetIdToString(assetId)].makeString(SEP)
 func keyAvailable(userAddress: Address) = ["%s%s", "available", userAddress.toString()].makeString(SEP)
@@ -61,8 +63,6 @@ func valueWithdrawalRequest(status: String, lpAssetAmount: Int, targetPeriod: In
 }
 func keyPeriodWithdrawalAssetIds(period: Int) = ["%s%d", "periodReward", period.toString()].makeString(SEP)
 func keyPeriodWithdrawalAmounts(period: Int) = ["%s%d", "periodRewardAmount", period.toString()].makeString(SEP)
-let keyMinHeightForWithdraw = ["%s", "minHeightForWithdraw"].makeString(SEP)
-let keyMaxHeightForWithdraw = ["%s", "maxHeightForWithdraw"].makeString(SEP)
 
 func parseWithdrawalRequestValueOrFail(s: String) = {
   let parts = s.split(SEP)
@@ -110,7 +110,19 @@ let mainTreasuryAddressOption  = match factoryAddressOption {
   }
   case _: Unit => unit
 }
+
+let businessTreasuryAddressOption  = match factoryAddressOption {
+  case a: Address => match a.getString(keyBusinessTreasuryAddress()) {
+    case s: String => s.addressFromString()
+    case _: Unit => unit
+  }
+  case _: Unit => unit
+}
+
 let mainTreasuryAddressOrFail = mainTreasuryAddressOption.valueOrErrorMessage(wrapErr("invalid main treasury address"))
+let businessTreasuryAddressOrFail = businessTreasuryAddressOption.valueOrErrorMessage(
+  wrapErr("invalid business treasury address")
+)
 
 func getManagerPublicKeyOrUnit() = {
   match (factoryAddressOption) {
@@ -386,17 +398,26 @@ func invest(userAddressBytes: ByteVector) = {
   let (paymentAmount, paymentAssetId) = if (payment.assetId == unit && payment.amount > 0) then {
     (payment.amount, payment.assetId)
   } else throwErr("invalid payment amount")
-  let lpAssetAmount = if (currentPriceOrFail > 0) then fraction(paymentAmount, SCALE8, currentPriceOrFail) else 0
+
+  let treasuryPart = factoryAddressOrFail.getInteger(keyBusinessTreasuryPart()).valueOrElse(0)
+  let paymentsWithoutTreasuryPart = fraction(paymentAmount, SCALE8 - treasuryPart, SCALE8)
+
+  let lpAssetAmount = if (currentPriceOrFail > 0) then fraction(
+    paymentsWithoutTreasuryPart,
+    SCALE8,
+    currentPriceOrFail
+  ) else 0
   let invested = factoryAddressOrFail.getInteger(keyInvested(unit)).valueOrElse(0)
   
   let actions = [
-    ScriptTransfer(mainTreasuryAddressOrFail, paymentAmount, paymentAssetId)
+    ScriptTransfer(mainTreasuryAddressOrFail, paymentsWithoutTreasuryPart, paymentAssetId),
+    ScriptTransfer(businessTreasuryAddressOrFail, treasuryPart, paymentAssetId)
   ]
 
   let factoryActions = [
     # increase invested amount
     factoryAddressOrFail.invoke("integerEntry", [
-      keyInvested(unit), invested + paymentAmount
+      keyInvested(unit), invested + paymentsWithoutTreasuryPart
     ], []),
     factoryAddressOrFail.invoke("reissue", [lpAssetAmount], []),
     factoryAddressOrFail.invoke("transferAsset", [
@@ -604,7 +625,9 @@ func processBlocks(userAddressBytes: ByteVector) = {
   ]
   strict (lpAssetAmountTotal, rewardAmountTotal) = FOLD<40>(list, (0, 0), map)
 
-  let rewardToMainTreasuryAmount = rewardAmountTotal - blockProcessingReward
+  let businessTreasuryPart = factoryAddressOrFail.getInteger(keyBusinessTreasuryPart()).valueOrElse(0)
+  let rewardToBusinessTreasuryAmount = fraction(rewardAmountTotal, businessTreasuryPart, SCALE8)
+  let rewardToMainTreasuryAmount = rewardAmountTotal - rewardToBusinessTreasuryAmount - blockProcessingReward
   let invested = factoryAddressOrFail.getInteger(keyInvested(unit)).valueOrElse(0)
 
   strict actions = [
@@ -622,6 +645,10 @@ func processBlocks(userAddressBytes: ByteVector) = {
     factoryAddressOrFail.invoke("transferFromProxyTreasury", [
       userAddressBytes,
       blockProcessingReward
+    ], []),
+    factoryAddressOrFail.invoke("transferFromProxyTreasury", [
+      businessTreasuryAddressOrFail.bytes,
+      rewardToBusinessTreasuryAmount
     ], []),
     # increase invested amount
     factoryAddressOrFail.invoke("integerEntry", [
