@@ -144,7 +144,7 @@ describe(`[${process.pid}] calculator: claim collateral`, () => {
       chainId
     }, accounts.user1.seed))
 
-    const stateChangesTransfers = stateChanges.invokes[0].stateChanges.invokes[1].stateChanges.transfers
+    const stateChangesTransfers = stateChanges.invokes[0].stateChanges.invokes[2].stateChanges.transfers
 
     const { value: price } = await api.addresses.fetchDataKey(accounts.factory.address, '%s%d__price__1')
     const profitRaw = newTreasuryVolumeInWaves - investedWavesAmount

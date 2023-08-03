@@ -6,7 +6,6 @@ let SEP = "__"
 let CONTRACT_NAME = "calculator.ride"
 let SCALE8 = 100_000_000
 let PENDING = "PENDING"
-let FINISHED = "FINISHED"
 let WAVES = "WAVES"
 
 func wrapErr(s: String) = {
@@ -60,6 +59,9 @@ func valueWithdrawalRequest(status: String, lpAssetAmount: Int, targetPeriod: In
     case _: Unit => "SOON"
   }
   ["%s%d%d%s", status, lpAssetAmount.toString(), targetPeriod.toString(), claimTxIdStr].makeString(SEP)
+}
+func keyWithdrawalHistory(userAddress: Address, txId: ByteVector) = {
+  ["%s%s%s", "withdrawalHistory", userAddress.toString(), txId.toBase58String()].makeString(SEP)
 }
 func keyPeriodWithdrawalAssetIds(period: Int) = ["%s%d", "periodReward", period.toString()].makeString(SEP)
 func keyPeriodWithdrawalAmounts(period: Int) = ["%s%d", "periodRewardAmount", period.toString()].makeString(SEP)
@@ -222,6 +224,53 @@ func finalizeINTERNAL(
     lpAssetAmountToBurn,
     lpAssetFinalQuantity
   )
+}
+
+func claimCollateralINTERNAL(userAddressBytes: ByteVector, txId: ByteVector, transactionId: ByteVector) = {
+  let userAddress = Address(userAddressBytes)
+  let currentPeriodOrFail =
+    factoryAddressOrFail.getInteger(keyCurrentPeriod()).valueOrErrorMessage(wrapErr("invalid period"))
+  let withdrawalRequestOption = factoryAddressOrFail
+    .getString(keyWithdrawalRequest(userAddress, txId))
+    .valueOrErrorMessage(wrapErr("invalid withdrawal request"))
+  let (status, lpAssetAmount, targetPeriod, claimTxId) = parseWithdrawalRequestValueOrFail(withdrawalRequestOption)
+  if (currentPeriodOrFail < targetPeriod) then {
+    throwErr("invalid withdrawal request period")
+  } else {
+    let priceOrFail =
+      factoryAddressOrFail.getInteger(keyPriceForPeriod(targetPeriod)).valueOrErrorMessage(wrapErr("invalid price"))
+    let wavesAmount = if (priceOrFail > 0) then fraction(lpAssetAmount, priceOrFail, SCALE8) else 0
+
+    let assetsString = factoryAddressOrFail.getStringValue(
+      keyPeriodWithdrawalAssetIds(currentPeriodOrFail)
+    )
+    let amountsString = factoryAddressOrFail.getStringValue(
+      keyPeriodWithdrawalAmounts(currentPeriodOrFail)
+    )
+
+    (userAddress, lpAssetAmount, targetPeriod, wavesAmount, assetsString, amountsString)
+  }
+}
+
+func claimCollateralREADONLYStringResponse(userAddressBytes: ByteVector, txId: ByteVector, transactionId: ByteVector) = {
+  let (
+    userAddress,
+    lpAssetAmount,
+    targetPeriod,
+    wavesAmount,
+    assetsString,
+    amountsString
+  ) = claimCollateralINTERNAL(userAddressBytes, txId, transactionId)
+
+  let assets = assetsString.split_51C(SEP).removeByIndex(0).makeString(":")
+  let amounts = amountsString.split_51C(SEP).removeByIndex(0).makeString(":")
+
+  [
+    "%d%s%s",
+    wavesAmount.toString(),
+    assets,
+    amounts
+  ].makeString(SEP)
 }
 
 @Callable(i)
@@ -499,38 +548,87 @@ func cancelWithdraw(userAddressBytes: ByteVector, txId: ByteVector) = {
 @Callable(i)
 func claimCollateral(userAddressBytes: ByteVector, txId: ByteVector) = {
   strict checkCaller = i.onlyFactory()
-  let userAddress = Address(userAddressBytes)
-  let currentPeriodOrFail =
-    factoryAddressOrFail.getInteger(keyCurrentPeriod()).valueOrErrorMessage(wrapErr("invalid period"))
-  let withdrawalRequestOption = factoryAddressOrFail
-    .getString(keyWithdrawalRequest(userAddress, txId))
-    .valueOrErrorMessage(wrapErr("invalid withdrawal request"))
-  let (status, lpAssetAmount, targetPeriod, claimTxId) = parseWithdrawalRequestValueOrFail(withdrawalRequestOption)
-  if (status == FINISHED) then {
-    throwErr("invalid withdrawal request status")
-  } else if (currentPeriodOrFail < targetPeriod) then {
-    throwErr("invalid withdrawal request period")
-  } else {
-    let priceOrFail =
-      factoryAddressOrFail.getInteger(keyPriceForPeriod(targetPeriod)).valueOrErrorMessage(wrapErr("invalid price"))
-    let amount = if (priceOrFail > 0) then fraction(lpAssetAmount, priceOrFail, SCALE8) else 0
-    let factoryActions = [
-      factoryAddressOrFail.invoke("stringEntry", [
-        keyWithdrawalRequest(userAddress, txId),
-        valueWithdrawalRequest(FINISHED, lpAssetAmount, targetPeriod, i.transactionId)
+  
+  let (
+    userAddress,
+    lpAssetAmount,
+    targetPeriod,
+    wavesAmount,
+    assetsString,
+    amountsString
+  ) = claimCollateralINTERNAL(userAddressBytes, txId, i.transactionId)
+
+  let assetsList = assetsString.split_51C(SEP).removeByIndex(0)
+  let amountsList = amountsString.split_51C(SEP).removeByIndex(0)  
+
+  let factoryActions = [
+    factoryAddressOrFail.invoke("deleteEntry", [
+      keyWithdrawalRequest(userAddress, txId)
+    ], []),
+    factoryAddressOrFail.invoke("integerEntry", [
+      keyWithdrawalHistory(userAddress, txId),
+      lpAssetAmount
+    ], []),
+    factoryAddressOrFail.invoke("transferAssets", [userAddressBytes, assetsList, amountsList], [])
+  ]
+
+  (nil, factoryActions)
+}
+
+@Callable(i)
+func claimCollateralBulk(userAddressBytes: ByteVector, txIds: List[ByteVector]) = {
+  strict checkCaller = i.onlyFactory()
+
+  func addNewAction(state: List[Any], txId: ByteVector) = {
+    let (
+      userAddress,
+      lpAssetAmount,
+      targetPeriod,
+      wavesAmount,
+      assetsString,
+      amountsString
+    ) = claimCollateralINTERNAL(userAddressBytes, txId, i.transactionId)
+
+    let assetsList = assetsString.split_51C(SEP).removeByIndex(0)
+    let amountsList = amountsString.split_51C(SEP).removeByIndex(0)
+
+    let newActions = [
+      factoryAddressOrFail.invoke("deleteEntry", [
+        keyWithdrawalRequest(userAddress, txId)
       ], []),
-
-      let assetsList = factoryAddressOrFail.getStringValue(
-        keyPeriodWithdrawalAssetIds(currentPeriodOrFail)
-      ).split_51C(SEP).removeByIndex(0)
-      let amountsList = factoryAddressOrFail.getStringValue(
-        keyPeriodWithdrawalAmounts(currentPeriodOrFail)
-      ).split_51C(SEP).removeByIndex(0)
-
+      factoryAddressOrFail.invoke("integerEntry", [
+        keyWithdrawalHistory(userAddress, txId),
+        lpAssetAmount
+      ], []),
       factoryAddressOrFail.invoke("transferAssets", [userAddressBytes, assetsList, amountsList], [])
     ]
-    (nil, factoryActions)
+
+    state ++ newActions
   }
+
+  let allFactoryActions = FOLD<10>(txIds, [], addNewAction)
+
+  (nil, allFactoryActions)
+}
+
+@Callable(i)
+func claimCollateralREADONLY(userAddressBytes: ByteVector, txId: ByteVector) = {
+  let response = claimCollateralREADONLYStringResponse(userAddressBytes, txId, i.transactionId)
+
+  (nil, response)
+}
+
+@Callable(i)
+func claimCollateralBulkREADONLY(userAddressBytes: ByteVector, txIds: List[ByteVector]) = {
+  func processTxId(state: List[String], txId: ByteVector) = {
+    let response = claimCollateralREADONLYStringResponse(userAddressBytes, txId, i.transactionId)
+
+    state :+ response
+  }
+
+  let allResponses = FOLD<10>(txIds, [], processTxId)
+
+  (nil, allResponses)
 }
 
 @Callable(i)

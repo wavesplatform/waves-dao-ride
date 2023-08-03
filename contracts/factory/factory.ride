@@ -328,6 +328,14 @@ func cancelWithdraw(txIdStr: String) =
 @Callable(i)
 func processBlocks() = (nil, calculatorAddressOrFail.reentrantInvoke("processBlocks", [i.caller.bytes], i.payments))
 
+@Callable(i)
+func claimCollateralREADONLY(userAddress: String, txIdStr: String) = {
+  (nil, calculatorAddressOrFail.reentrantInvoke(
+    "claimCollateralREADONLY",
+    [userAddress.fromBase58String(), txIdStr.fromBase58String()], []
+  ))
+}
+
 #####################
 # MUTISIG FUNCTIONS #
 #####################
