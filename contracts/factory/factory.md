@@ -5,6 +5,7 @@
 | `%s__calculator`              | `String` | Calculator Address            |
 | `%s__proxyTreasury`           | `String` | Proxy Treasury Address        |
 | `%s__mainTreasury`            | `String` | Main Treasury Address         |
+| `%s__powerTreasury`           | `String` | Power Treasury Address        |
 | `%s__config`                  | `String` | DAO Config address            |
 | `%s__lpAssetId`               | `String` | LP Asset ID                   |
 | `%s__currentPeriod`           | `Int`    | Current period num            |
@@ -14,6 +15,7 @@
 | `%s%d__startHeight__<period>` | `Int`    | Starting Height of `<period>` |
 | `%s%d__price__<period>`       | `Int`    | LP Asset Price for `<period>` |
 | `%s__nextBlockToProcess`      | `Int`    | Next block height to process  |
+| `%s__powerShareRatio`         | `Int`    | Power share ratio             |
 
 ### User state
 
@@ -21,6 +23,7 @@
 | :------------------------------------------ | :------- | :--------------------------------- |
 | `%s%s__available__<userAddress>`            | `Int`    | Available LP Asset amount to Claim |
 | `%s%s__claimed__<userAddress>`              | `Int`    | LP Asset amount already claimed    |
+| `%s%s__swappedToPower__<userAddress>`       | `Int`    | Waves amount swapped to Power      |
 | `%s%s%s__withdrawal__<userAddress>__<txId>` | `String` | Withdrawal request parameters      |
 
 ```

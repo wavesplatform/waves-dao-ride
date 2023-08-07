@@ -26,7 +26,8 @@ export const setup = async ({
   price = 100000000,
   period = 0,
   donatedWavesAmount = 0,
-  investedWavesAmount = 0
+  investedWavesAmount = 0,
+  powerShareRatio = 0
 } = {}) => {
   const nonce = wc.random(nonceLength, 'Buffer').toString('hex')
   const names = [
@@ -34,6 +35,7 @@ export const setup = async ({
     'calculator',
     'treasury',
     'mainTreasury',
+    'powerTreasury',
     'user1'
   ]
   const accounts = Object.fromEntries(names.map((item) => {
@@ -96,6 +98,8 @@ export const setup = async ({
       { key: '%s__calculator', type: 'string', value: accounts.calculator.address },
       { key: '%s__proxyTreasury', type: 'string', value: daoAddress() },
       { key: '%s__mainTreasury', type: 'string', value: accounts.mainTreasury.address },
+      { key: '%s__powerTreasury', type: 'string', value: accounts.powerTreasury.address },
+      { key: '%s__powerShareRatio', type: 'integer', value: powerShareRatio },
       { key: '%s__lpAssetId', type: 'string', value: lpAssetId },
       { key: '%s__nextBlockToProcess', type: 'integer', value: nextBlockToProcess },
       { key: '%s__currentPeriod', type: 'integer', value: currentPeriod },

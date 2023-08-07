@@ -33,10 +33,13 @@ func keyManagerPublicKey() = ["%s", "managerPublicKey"].makeString(SEP)
 func keyLpAssetId() = ["%s", "lpAssetId"].makeString(SEP)
 func keyProxyTreasuryAddress() = ["%s", "proxyTreasury"].makeString(SEP)
 func keyMainTreasuryAddress() = ["%s", "mainTreasury"].makeString(SEP)
+func keyPowerTreasuryAddress() = ["%s", "powerTreasury"].makeString(SEP)
+func keyPowerShareRatio() = ["%s", "powerShareRatio"].makeString(SEP)    # Scale 10^8, For example 0.2 = 2000_0000
 func keyInvested(assetId: ByteVector|Unit) = ["%s%s", "invested", assetIdToString(assetId)].makeString(SEP)
 func keyDonated(assetId: ByteVector|Unit) = ["%s%s", "donated", assetIdToString(assetId)].makeString(SEP)
 func keyAvailable(userAddress: Address) = ["%s%s", "available", userAddress.toString()].makeString(SEP)
 func keyClaimed(userAddress: Address) = ["%s%s", "claimed", userAddress.toString()].makeString(SEP)
+func keySwappedToPower(userAddress: Address) = ["%s%s", "swappedToPower", userAddress.toString()].makeString(SEP)
 func keyCurrentPeriod() = ["%s", "currentPeriod"].makeString(SEP)
 func keyPriceForPeriod(period: Int) = ["%s%d", "price", period.toString()].makeString(SEP)
 func keyStartHeight(period: Int) = ["%s%d", "startHeight", period.toString()].makeString(SEP)
@@ -100,6 +103,15 @@ let mainTreasuryAddressOption  = match factoryAddressOption {
   case _: Unit => unit
 }
 let mainTreasuryAddressOrFail = mainTreasuryAddressOption.valueOrErrorMessage(wrapErr("invalid main treasury address"))
+
+let powerTreasuryAddressOption = match factoryAddressOption {
+  case a: Address => match a.getString(keyPowerTreasuryAddress()) {
+    case s: String => s.addressFromString()
+    case _: Unit => unit
+  }
+  case _: Unit => unit
+}
+let powerTreasuryAddressOrFail = powerTreasuryAddressOption.valueOrErrorMessage(wrapErr("invalid power treasury address"))
 
 func getManagerPublicKeyOrUnit() = {
   match (factoryAddressOption) {
@@ -257,7 +269,7 @@ func finalize(
       || throwErr("invalid treasury volume diff allocation coefficient")
   ]
 
-  # Finalize calcualtions
+  # Finalize calculations
   let (
     paymentAmountMin, 
     finalInvestedWavesAmount, 
@@ -345,7 +357,7 @@ func finalizeREADONLY(
       || throwErr("invalid treasury volume diff allocation coefficient")
   ]
 
-  # Finalize calcualtions
+  # Finalize calculations
   ([], finalizeINTERNAL(newTreasuryVolumeInWaves, pwrManagersBonusInWaves, treasuryVolumeDiffAllocationCoef))
 }
 
@@ -522,7 +534,7 @@ func processBlocks(userAddressBytes: ByteVector) = {
   let blockProcessingRewardByGenerator = blockProcessingReward / blocksProcessingBatchSize
   let blockProcessingRewardByGeneratorRemainder = blockProcessingReward - blockProcessingRewardByGenerator * blocksProcessingBatchSize
   
-  func map(acc: (Int, Int), inc: Int) = {
+  func map(acc: (Int, Int, Int), inc: Int) = {
     if (inc >= blocksProcessingBatchSize) then {
       acc
     } else {
@@ -532,6 +544,7 @@ func processBlocks(userAddressBytes: ByteVector) = {
         .valueOrErrorMessage(wrapErr("invalid treasury reward for height " + targetBlockHeight.toString()))
       let generator = targetBlockInfo.generator
       let available = factoryAddressOrFail.getInteger(keyAvailable(generator)).valueOrElse(0)
+      let swappedToPower = factoryAddressOrFail.getInteger(keySwappedToPower(generator)).valueOrElse(0)
 
       let callerReward = if (inc == blocksProcessingBatchSize - 1) then {
         blockProcessingRewardByGenerator + blockProcessingRewardByGeneratorRemainder
@@ -539,8 +552,12 @@ func processBlocks(userAddressBytes: ByteVector) = {
         blockProcessingRewardByGenerator
       }
 
+      # Power Share Ratio cannot be more that 1.0 or less than 0.0
+      let powerShareRatio = max([0, min([factoryAddressOrFail.getInteger(keyPowerShareRatio()).valueOrElse(0), SCALE8])])
+      let powerShareAmount = fraction((treasuryRewardOrFail - callerReward), powerShareRatio, SCALE8)
+
       let lpAssetAmount = if (currentPriceOrFail > 0)
-        then fraction(treasuryRewardOrFail - callerReward, SCALE8, currentPriceOrFail)
+        then fraction(treasuryRewardOrFail - callerReward - powerShareAmount, SCALE8, currentPriceOrFail)
         else 0
       
       strict factoryActionsSingle = [
@@ -553,16 +570,21 @@ func processBlocks(userAddressBytes: ByteVector) = {
             userAddressBytes.toBase58String(),
             treasuryRewardOrFail.toString(),
             callerReward.toString(),
-            lpAssetAmount.toString()
+            lpAssetAmount.toString(),
+            powerShareAmount.toString()
           ], SEP)
         ], []),
         factoryAddressOrFail.invoke("integerEntry", [
           keyAvailable(generator),
           available + lpAssetAmount
+        ], []),
+        factoryAddressOrFail.invoke("integerEntry", [
+          keySwappedToPower(generator),
+          swappedToPower + powerShareAmount
         ], [])
       ]
-      let (lpAssetAcc, rewardAcc) = acc
-      (lpAssetAcc + lpAssetAmount, rewardAcc + treasuryRewardOrFail)
+      let (lpAssetAcc, rewardAcc, powerShareAcc) = acc
+      (lpAssetAcc + lpAssetAmount, rewardAcc + treasuryRewardOrFail, powerShareAcc + powerShareAmount)
     }
   }
 
@@ -572,9 +594,9 @@ func processBlocks(userAddressBytes: ByteVector) = {
     20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
     30, 31, 32, 33, 34, 35, 36, 37, 38, 39
   ]
-  strict (lpAssetAmountTotal, rewardAmountTotal) = FOLD<40>(list, (0, 0), map)
+  strict (lpAssetAmountTotal, rewardAmountTotal, powerShareAmountTotal) = FOLD<40>(list, (0, 0, 0), map)
 
-  let rewardToMainTreasuryAmount = rewardAmountTotal - blockProcessingReward
+  let rewardToMainTreasuryAmount = rewardAmountTotal - blockProcessingReward - powerShareAmountTotal
   let invested = factoryAddressOrFail.getInteger(keyInvested(unit)).valueOrElse(0)
 
   strict actions = [
@@ -592,6 +614,10 @@ func processBlocks(userAddressBytes: ByteVector) = {
     factoryAddressOrFail.invoke("transferFromProxyTreasury", [
       userAddressBytes,
       blockProcessingReward
+    ], []),
+    factoryAddressOrFail.invoke("transferFromProxyTreasury", [
+      powerTreasuryAddressOrFail.bytes,
+      powerShareAmountTotal
     ], []),
     # increase invested amount
     factoryAddressOrFail.invoke("integerEntry", [
