@@ -4,7 +4,9 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "test": "NETWORK=custom mocha"
+    "test": "NETWORK=custom mocha",
+    "lint": "eslint . --ext .mjs --ext .js",
+    "lint-fix": "eslint . --ext .mjs --ext .js --fix"
   },
   "keywords": [],
   "author": "",

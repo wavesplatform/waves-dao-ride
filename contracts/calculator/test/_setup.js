@@ -37,6 +37,7 @@ export const setup = async ({
     'calculator',
     'treasury',
     'mainTreasury',
+    'businessTreasury',
     'powerContract',
     'swapContract',
     'user1'
@@ -117,6 +118,7 @@ export const setup = async ({
       { key: '%s__calculator', type: 'string', value: accounts.calculator.address },
       { key: '%s__proxyTreasury', type: 'string', value: daoAddress() },
       { key: '%s__mainTreasury', type: 'string', value: accounts.mainTreasury.address },
+      { key: '%s__businessTreasury', type: 'string', value: accounts.businessTreasury.address },
       { key: '%s__powerContract', type: 'string', value: accounts.powerContract.address },
       { key: '%s__powerShareRatio', type: 'integer', value: powerShareRatio },
       { key: '%s__powerAssetId', type: 'string', value: powerAssetId },

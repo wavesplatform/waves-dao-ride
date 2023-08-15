@@ -3,6 +3,7 @@
 {-# SCRIPT_TYPE ACCOUNT #-}
 
 let SEP = "__"
+let WAVES = "WAVES"
 let contractFilename = "factory.ride"
 
 func wrapErr(s: String) = {
@@ -11,6 +12,10 @@ func wrapErr(s: String) = {
 
 func throwErr(s: String) = {
   throw(wrapErr(s))
+}
+
+func stringToAssetId(s: String) = {
+  if (s == WAVES) then unit else s.fromBase58String()
 }
 
 ######################
@@ -234,6 +239,28 @@ func transferAsset(recipientBytes: ByteVector, amount: Int, assetId: ByteVector)
   if (i.onlyCalculator()) then ([ScriptTransfer(Address(recipientBytes), amount, assetId)], amount) else ([], unit)
 
 @Callable(i)
+func transferAssets(recipientBytes: ByteVector, assetsList: List[String], amountsList: List[String]) = {
+  if (i.onlyCalculator()) then {
+    func addNewTransfer(accum: (List[ScriptTransfer], Int), nextAssetId: String) = {
+      let (transfers, j) = accum
+
+      let newTransfer = ScriptTransfer(
+        Address(recipientBytes),
+        amountsList[j].parseIntValue(),
+        assetsList[j].stringToAssetId()
+      )
+      let updatedTransfers = transfers :+ newTransfer
+      (updatedTransfers, j + 1)
+    }
+
+    let (assetsTransfers, _lastIndex) = FOLD<10>(assetsList, ([], 0), addNewTransfer)
+    (assetsTransfers, unit)
+  } else {
+    ([], unit)
+  }
+}
+
+@Callable(i)
 func transferWaves(recipientBytes: ByteVector, amount: Int) = 
   if (i.onlyCalculator()) then ([ScriptTransfer(Address(recipientBytes), amount, unit)], amount) else ([], unit)
 
@@ -296,8 +323,8 @@ func claimLP() =
   (nil, calculatorAddressOrFail.reentrantInvoke("claimLP", [i.caller.bytes], i.payments))
 
 @Callable(i)
-func claimWaves(txIdStr: String) =
-  (nil, calculatorAddressOrFail.reentrantInvoke("claimWaves", [i.caller.bytes, txIdStr.fromBase58String()], i.payments))
+func claimCollateral(txIdStr: String) =
+  (nil, calculatorAddressOrFail.reentrantInvoke("claimCollateral", [i.caller.bytes, txIdStr.fromBase58String()], i.payments))
 
 @Callable(i)
 func invest() =
@@ -314,6 +341,14 @@ func cancelWithdraw(txIdStr: String) =
 # process miners blocks
 @Callable(i)
 func processBlocks() = (nil, calculatorAddressOrFail.reentrantInvoke("processBlocks", [i.caller.bytes], i.payments))
+
+@Callable(i)
+func claimCollateralREADONLY(userAddress: String, txIdStr: String) = {
+  (nil, calculatorAddressOrFail.reentrantInvoke(
+    "claimCollateralREADONLY",
+    [userAddress.fromBase58String(), txIdStr.fromBase58String()], []
+  ))
+}
 
 @Callable(i)
 func swap(assetId: String) = {
