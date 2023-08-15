@@ -1,0 +1,13 @@
+{-# STDLIB_VERSION 6 #-}
+{-# CONTENT_TYPE DAPP #-}
+{-# SCRIPT_TYPE ACCOUNT #-}
+
+@Callable(i)
+func commitForMiner(addressString: String) = {
+    let key = addressString + "_staked"
+    let staked = this.getInteger(key).valueOrElse(0)
+
+    [
+        IntegerEntry(key, staked + i.payments[0].amount)
+    ]
+}

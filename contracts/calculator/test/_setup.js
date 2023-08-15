@@ -16,6 +16,8 @@ const nonceLength = 3
 const calculatorPath = format({ dir: 'contracts/calculator', base: 'calculator.ride' })
 const factoryPath = format({ dir: 'contracts/factory', base: 'factory.ride' })
 const proxyTreasuryPath = format({ dir: 'contracts/treasury', base: 'proxy_treasury.ride' })
+const powerContractPath = format({ dir: 'contracts/calculator/mock', base: 'power.mock.ride' })
+const swapContractPath = format({ dir: 'contracts/calculator/mock', base: 'swap.mock.ride' })
 const scale8 = 1e8
 
 export const setup = async ({
@@ -35,7 +37,8 @@ export const setup = async ({
     'calculator',
     'treasury',
     'mainTreasury',
-    'powerTreasury',
+    'powerContract',
+    'swapContract',
     'user1'
   ]
   const accounts = Object.fromEntries(names.map((item) => {
@@ -58,6 +61,7 @@ export const setup = async ({
 
   const lpAssetAmountToIssueRaw = Math.floor(investedWavesAmount * price / scale8)
   const lpAssetAmountToIssue = lpAssetAmountToIssueRaw === 0 ? 1 : lpAssetAmountToIssueRaw
+  const powerAmountToIssue = 1e14
 
   const { id: lpAssetId } = await broadcastAndWait(issue({
     name: 'WAVESDAOLP',
@@ -75,6 +79,21 @@ export const setup = async ({
       chainId
     }, accounts.factory.seed))
   }
+
+  const { id: powerAssetId } = await broadcastAndWait(issue({
+    name: 'PWRTKN',
+    description: 'PWR',
+    quantity: powerAmountToIssue,
+    decimals: 8,
+    reissuable: true,
+    chainId
+  }, accounts.treasury.seed))
+
+  await broadcastAndWait(massTransfer({
+    transfers: Object.values(accounts).map(({ address }) => ({ recipient: address, amount })),
+    assetId: powerAssetId,
+    chainId
+  }, accounts.treasury.seed))
 
   await broadcastAndWait(data({
     additionalFee: 4e5,
@@ -98,8 +117,10 @@ export const setup = async ({
       { key: '%s__calculator', type: 'string', value: accounts.calculator.address },
       { key: '%s__proxyTreasury', type: 'string', value: daoAddress() },
       { key: '%s__mainTreasury', type: 'string', value: accounts.mainTreasury.address },
-      { key: '%s__powerTreasury', type: 'string', value: accounts.powerTreasury.address },
+      { key: '%s__powerContract', type: 'string', value: accounts.powerContract.address },
       { key: '%s__powerShareRatio', type: 'integer', value: powerShareRatio },
+      { key: '%s__powerAssetId', type: 'string', value: powerAssetId },
+      { key: '%s__swapContract', type: 'string', value: accounts.swapContract.address },
       { key: '%s__lpAssetId', type: 'string', value: lpAssetId },
       { key: '%s__nextBlockToProcess', type: 'integer', value: nextBlockToProcess },
       { key: '%s__currentPeriod', type: 'integer', value: currentPeriod },
@@ -116,6 +137,8 @@ export const setup = async ({
   await setScriptFromFile(calculatorPath, accounts.calculator.seed)
   await setScriptFromFile(factoryPath, accounts.factory.seed)
   await setScriptFromFile(proxyTreasuryPath, daoSeed)
+  await setScriptFromFile(powerContractPath, accounts.powerContract.seed)
+  await setScriptFromFile(swapContractPath, accounts.swapContract.seed)
 
-  return { accounts, lpAssetId, periodLength, blockProcessingReward, price }
+  return { accounts, lpAssetId, powerAssetId, periodLength, blockProcessingReward, price }
 }

@@ -102,6 +102,8 @@ func voteINTERNAL(
 
 func keyCalculatorAddress() = "%s__calculator"
 func keyProxyTreasuryAddress() = "%s__proxyTreasury" # 3PEgG7eZHLFhcfsTSaYxgRhZsh4AxMvA4Ms
+func keyPowerContractAddress() = "%s__powerContract" # TODO:
+func keySwapContractAddress() = "%s__swapContract" # TODO:
 func keyChildAddress() = "%s__child" # 3PEwRcYNAUtoFvKpBhKoiwajnZfdoDR6h4h
 # 0.005 waves to compensate the cost of the transaction
 func keyBlockProcessingReward() = "%s__blockProcessingReward"
@@ -121,6 +123,18 @@ let proxyTreasuryAddressOption = match this.getString(keyProxyTreasuryAddress())
   case _: Unit => unit
 }
 let proxyTreasuryAddressOrFail = proxyTreasuryAddressOption.valueOrErrorMessage(wrapErr("invalid proxy treasury address"))
+
+let powerContractAddressOption = match this.getString(keyPowerContractAddress()) {
+  case s: String => s.addressFromString()
+  case _: Unit => unit
+}
+let powerContractAddressOrFail = powerContractAddressOption.valueOrErrorMessage(wrapErr("invalid power contract address"))
+
+let swapContractAddressOption = match this.getString(keySwapContractAddress()) {
+  case s: String => s.addressFromString()
+  case _: Unit => unit
+}
+let swapContractAddressOrFail = swapContractAddressOption.valueOrErrorMessage(wrapErr("invalid swap contract address"))
 
 func keyConfigAddress() = "%s__config"
 
@@ -216,12 +230,12 @@ func burn(amount: Int) =
   if (i.onlyCalculator()) then ([Burn(lpAssetIdOrFail, amount)], amount) else ([], unit)
 
 @Callable(i)
-func transferAsset(recepientBytes: ByteVector, amount: Int, assetId: ByteVector) = 
-  if (i.onlyCalculator()) then ([ScriptTransfer(Address(recepientBytes), amount, assetId)], amount) else ([], unit)
+func transferAsset(recipientBytes: ByteVector, amount: Int, assetId: ByteVector) = 
+  if (i.onlyCalculator()) then ([ScriptTransfer(Address(recipientBytes), amount, assetId)], amount) else ([], unit)
 
 @Callable(i)
-func transferWaves(recepientBytes: ByteVector, amount: Int) = 
-  if (i.onlyCalculator()) then ([ScriptTransfer(Address(recepientBytes), amount, unit)], amount) else ([], unit)
+func transferWaves(recipientBytes: ByteVector, amount: Int) = 
+  if (i.onlyCalculator()) then ([ScriptTransfer(Address(recipientBytes), amount, unit)], amount) else ([], unit)
 
 @Callable(i)
 func transferFromProxyTreasury(recipientBytes: ByteVector, rewardsAmount: Int) =
@@ -301,9 +315,32 @@ func cancelWithdraw(txIdStr: String) =
 @Callable(i)
 func processBlocks() = (nil, calculatorAddressOrFail.reentrantInvoke("processBlocks", [i.caller.bytes], i.payments))
 
-#####################
-# MUTISIG FUNCTIONS #
-#####################
+@Callable(i)
+func swap(assetId: String) = {
+  strict check = [ i.onlyCalculator() ]
+
+  strict initAssetBalance = if (assetId == "WAVES") 
+    then this.wavesBalance().available
+    else this.assetBalance(assetId.fromBase58String())
+
+  strict swapInvoke = swapContractAddressOrFail.invoke("swap", [0, assetId, this.toString()], i.payments)
+  
+  strict newAssetBalance = if (assetId == "WAVES") 
+    then this.wavesBalance().available
+    else this.assetBalance(assetId.fromBase58String())
+
+  (nil, newAssetBalance - initAssetBalance)
+}
+
+@Callable(i)
+func powerStake(recipientBytes: ByteVector) = 
+  if (i.onlyCalculator()) 
+    then (nil, powerContractAddressOrFail.invoke("commitForMiner", [Address(recipientBytes).toString()], i.payments))
+    else ([], unit)
+
+######################
+# MULTISIG FUNCTIONS #
+######################
 # Vote for txId that is allowed in Verifier
 @Callable(i)
 func voteForTxId(txId: String) = {
@@ -319,9 +356,9 @@ func voteForTxId(txId: String) = {
 
   voteINTERNAL(callerAddressString, keyPrefix, QUORUM, result)
 }
-#########################
-# MUTISIG FUNCTIONS END #
-#########################
+##########################
+# MULTISIG FUNCTIONS END #
+##########################
 
 @Verifier(tx)
 func verify() = {

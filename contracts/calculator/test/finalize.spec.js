@@ -113,7 +113,6 @@ describe(`[${process.pid}] calculator: finalize`, () => {
     }
 
     const expectedPrice = Math.floor((totalInvestAmount + investProfit) * scale8 / quantity)
-    console.log(price / scale8, expectedPrice / scale8)
     expect(price, 'invalid price').to.equal(expectedPrice)
     const expectedFactoryBalance = factoryBalanceBefore + paymentAmount
     expect(factoryBalanceAfter, 'invalid factory balance').to.equal(expectedFactoryBalance)

@@ -5,9 +5,11 @@
 | `%s__calculator`              | `String` | Calculator Address            |
 | `%s__proxyTreasury`           | `String` | Proxy Treasury Address        |
 | `%s__mainTreasury`            | `String` | Main Treasury Address         |
-| `%s__powerTreasury`           | `String` | Power Treasury Address        |
+| `%s__powerContract`           | `String` | Power dApp Address            |
+| `%s__swapContract`            | `String` | WX Swap Contract Address      |
 | `%s__config`                  | `String` | DAO Config address            |
 | `%s__lpAssetId`               | `String` | LP Asset ID                   |
+| `%s__powerAssetId`            | `String` | Power Asset ID                |
 | `%s__currentPeriod`           | `Int`    | Current period num            |
 | `%s__periodLength`            | `Int`    | Period length in blocks       |
 | `%s%s__invested__WAVES`       | `Int`    | Invested Amount in Waves      |
@@ -86,6 +88,9 @@ func claimWaves(txIdStr: String)
 ### Block processing
 
 Process block miners rewards.
+Block processing reward amount sent to caller.
+Waves amount equals to Power Share Ratio is converted to Power Asset.
+Power assets immediately staked in Power dApp Contract
 
 ```
 @Callable(i)
