@@ -25,7 +25,6 @@
 | :------------------------------------------ | :------- | :--------------------------------- |
 | `%s%s__available__<userAddress>`            | `Int`    | Available LP Asset amount to Claim |
 | `%s%s__claimed__<userAddress>`              | `Int`    | LP Asset amount already claimed    |
-| `%s%s__swappedToPower__<userAddress>`       | `Int`    | Waves amount swapped to Power      |
 | `%s%s%s__withdrawal__<userAddress>__<txId>` | `String` | Withdrawal request parameters      |
 
 ```

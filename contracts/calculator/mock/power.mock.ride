@@ -4,10 +4,12 @@
 
 @Callable(i)
 func commitForMiner(addressString: String) = {
-    let key = addressString + "_staked"
+    let index = this.getInteger("index").valueOrElse(0)
+    let key = addressString + "_staked_" + index.toString()
     let staked = this.getInteger(key).valueOrElse(0)
 
     [
-        IntegerEntry(key, staked + i.payments[0].amount)
+        IntegerEntry(key, staked + i.payments[0].amount),
+        IntegerEntry("index", index + 1)
     ]
 }
