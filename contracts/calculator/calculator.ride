@@ -45,7 +45,6 @@ func keyInvested(assetId: ByteVector|Unit) = ["%s%s", "invested", assetIdToStrin
 func keyDonated(assetId: ByteVector|Unit) = ["%s%s", "donated", assetIdToString(assetId)].makeString(SEP)
 func keyAvailable(userAddress: Address) = ["%s%s", "available", userAddress.toString()].makeString(SEP)
 func keyClaimed(userAddress: Address) = ["%s%s", "claimed", userAddress.toString()].makeString(SEP)
-func keySwappedToPower(userAddress: Address) = ["%s%s", "swappedToPower", userAddress.toString()].makeString(SEP)
 func keyCurrentPeriod() = ["%s", "currentPeriod"].makeString(SEP)
 func keyPriceForPeriod(period: Int) = ["%s%d", "price", period.toString()].makeString(SEP)
 func keyStartHeight(period: Int) = ["%s%d", "startHeight", period.toString()].makeString(SEP)
