@@ -158,25 +158,17 @@ func rewardForOption(rewards: List[(Address, Int)], target: Address) = {
   else unit
 }
 
-func finalizeINTERNAL(
-  donationPartInWaves: Int,
-  lpPartInWaves: Int,
-  claimPartInWaves: Int,
-  powerStakePartInWaves: Int
-) = {
+func calculatePrice(lpPartInWaves: Int) = {
   # calculate new price
   let lpAssetAmountToBurn = factoryAddressOrFail.getInteger(keyWithdrawal()).valueOrElse(0)
   let lpAssetQuantity = lpAssetIdOrFail.assetInfo()
     .valueOrErrorMessage(wrapErr("invalid lpAsset info")).quantity
   let newPrice = fraction(lpPartInWaves, SCALE8, lpAssetQuantity - lpAssetAmountToBurn)
-  strict checkIfPriceNotZero =  (newPrice != 0) || throwErr("LP price cannot be 0")
+  strict checkIfPriceNotZero = (newPrice != 0) || throwErr("LP price cannot be 0")
 
   let lpAssetFinalQuantity = lpAssetQuantity - lpAssetAmountToBurn
   
   (
-    claimPartInWaves,
-    lpPartInWaves,
-    donationPartInWaves,
     newPrice,
     lpAssetAmountToBurn,
     lpAssetFinalQuantity
@@ -290,15 +282,12 @@ func finalize(
     powerStakePartInWaves >= 0 || throwErr("invalid PWR stake part")
   ]
 
-  # Finalize calculations
+  # Price calculations
   let (
-    paymentAmountMin,
-    finalInvestedWavesAmount, 
-    donatedWavesAmountNew, 
-    newPrice, 
-    lpAssetAmountToBurn, 
+    newPrice,
+    lpAssetAmountToBurn,
     lpAssetFinalQuantity
-  ) = finalizeINTERNAL(donationPartInWaves, lpPartInWaves, claimPartInWaves, powerStakePartInWaves)
+  ) = calculatePrice(lpPartInWaves)
 
   let newPeriod = currentPeriodOrFail + 1
 
@@ -334,9 +323,9 @@ func finalize(
     factoryAddressOrFail.invoke("burn", [lpAssetAmountToBurn], []),
     factoryAddressOrFail.invoke("integerEntry", [keyWithdrawal(), 0], []),
     # new invested amount
-    factoryAddressOrFail.invoke("integerEntry", [keyInvested(unit), finalInvestedWavesAmount], []),
+    factoryAddressOrFail.invoke("integerEntry", [keyInvested(unit), lpPartInWaves], []),
     # new donated amount
-    factoryAddressOrFail.invoke("integerEntry", [keyDonated(unit), donatedWavesAmountNew], []),
+    factoryAddressOrFail.invoke("integerEntry", [keyDonated(unit), donationPartInWaves], []),
     # new period treasury
     factoryAddressOrFail.invoke("stringEntry", [keyPeriodWithdrawalAssetIds(newPeriod), AssetIds], []),
     factoryAddressOrFail.invoke("stringEntry", [keyPeriodWithdrawalAmounts(newPeriod), Amounts], [])
@@ -387,8 +376,24 @@ func finalizeREADONLY(
     powerStakePartInWaves >= 0 || throwErr("invalid PWR stake part")
   ]
 
-  # Finalize calculations
-  ([], finalizeINTERNAL(donationPartInWaves, lpPartInWaves, claimPartInWaves, powerStakePartInWaves))
+  # Price calculations
+  let (
+    newPrice,
+    lpAssetAmountToBurn,
+    lpAssetFinalQuantity
+  ) = calculatePrice(lpPartInWaves)
+
+  (
+    [], 
+    (
+      claimPartInWaves, 
+      lpPartInWaves, 
+      donationPartInWaves, 
+      newPrice, 
+      lpAssetAmountToBurn, 
+      lpAssetFinalQuantity
+    )
+  )
 }
 
 # payment in waves
