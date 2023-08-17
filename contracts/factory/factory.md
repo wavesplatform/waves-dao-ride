@@ -1,24 +1,28 @@
 ### Required state entries
 
-| key                                 | type     | description                             |
-| :---------------------------------- | :------- | :-------------------------------------- |
-| `%s__calculator`                    | `String` | Calculator Address                      |
-| `%s__proxyTreasury`                 | `String` | Proxy Treasury Address                  |
-| `%s__mainTreasury`                  | `String` | Main Treasury Address                   |
-| `%s__businessTreasury`              | `String` | Business Treasury Address               |
-| `%s__config`                        | `String` | DAO Config address                      |
-| `%s__lpAssetId`                     | `String` | LP Asset ID                             |
-| `%s__currentPeriod`                 | `Int`    | Current period num                      |
-| `%s__withdrawal`                    | `Int`    | LP amount to withdraw in current period |
-| `%s__periodLength`                  | `Int`    | Period length in blocks                 |
-| `%s__businessTreasuryPart`          | `Int`    | Business Treasury share part            |
-| `%s%s__invested__WAVES`             | `Int`    | Invested Amount in Waves                |
-| `%s%s__donated__WAVES`              | `Int`    | Donated Amount in Waves                 |
-| `%s%d__startHeight__<period>`       | `Int`    | Starting Height of `<period>`           |
-| `%s%d__price__<period>`             | `Int`    | LP Asset Price for `<period>`           |
-| `%s%d__powerManagerBonus__<period>` | `Int`    | PWR Stake part in Waves for `<period>`  |
-| `%s%d__claimWavesAmount__<period>`  | `Int`    | Claim amount in Waves for  `<period>`   |
-| `%s__nextBlockToProcess`            | `Int`    | Next block height to process            |
+| key                                  | type     | description                             |
+| :----------------------------------- | :------- | :-------------------------------------- |
+| `%s__calculator`                     | `String` | Calculator Address                      |
+| `%s__proxyTreasury`                  | `String` | Proxy Treasury Address                  |
+| `%s__mainTreasury`                   | `String` | Main Treasury Address                   |
+| `%s__businessTreasury`               | `String` | Business Treasury Address               |
+| `%s__config`                         | `String` | DAO Config address                      |
+| `%s__lpAssetId`                      | `String` | LP Asset ID                             |
+| `%s__businessTreasuryPart`           | `Int`    | Business Treasury share part            |
+| `%s__currentPeriod`                  | `Int`    | Current period num                      |
+| `%s__withdrawal`                     | `Int`    | LP amount to withdraw in current period |
+| `%s__periodLength`                   | `Int`    | Period length in blocks                 |
+| `%s__investPeriodLength`             | `Int`    | Invest Period length in blocks          |
+| `%s%s__invested__WAVES`              | `Int`    | Invested Amount in Waves                |
+| `%s%s__donated__WAVES`               | `Int`    | Donated Amount in Waves                 |
+| `%s%d__startHeight__<period>`        | `Int`    | Starting Height of `<period>`           |
+| `%s%d__price__<period>`              | `Int`    | LP Asset Price for `<period>`           |
+| `%s__nextBlockToProcess`             | `Int`    | Next block height to process            |
+| `%s%d__powerManagerBonus__<period>`  | `Int`    | PWR Stake part in Waves for `<period>`  |
+| `%s%d__claimWavesAmount__<period>`   | `Int`    | Claim amount in Waves for  `<period>`   |
+| `%s%d__periodReward__<period>`       | `Int`    | Period reward assetIds list             |
+| `%s%d__periodRewardAmount__<period>` | `Int`    | Period reward assets amount list        |
+
 
 ### User state
 
@@ -76,17 +80,31 @@ func cancelWithdraw(txIdStr: String)
 
 #### Claim Collateral
 
-Claim Collateral from withdraw request 
+Claim Collateral from withdraw request
 `txIdStr` - withdraw request TxId
 
 ```
-@Callable(i)
 func claimCollateral(txIdStr: String)
 ```
 
+Claim Collateral from butch withdraw requests at current price. 
+`txIds` - withdraw requests list
 ```
-@Callable(i)
+func claimCollateralBulk(txIds: List[String])
+```
+
+Claim Collateral from withdraw request at current price. 
+`userAddress` - user address for claim check
+`txIdStr` - withdraw request TxId
+```
 func claimCollateralREADONLY(userAddress: String, txIdStr: String)
+```
+
+Claim Collateral from butch withdraw requests at current price. 
+`userAddress` - user address for claim check
+`txIds` - withdraw requests list
+```
+claimCollateralBulkREADONLY(userAddress: String, txIds: List[String])
 ```
 
 ---
