@@ -19,6 +19,7 @@ const proxyTreasuryPath = format({ dir: 'contracts/treasury', base: 'proxy_treas
 const scale8 = 1e8
 
 export const setup = async ({
+  investPeriodLength = 9999999,
   periodLength = 2,
   blockProcessingReward = 500000,
   nextBlockToProcess = 2,
@@ -104,6 +105,7 @@ export const setup = async ({
       { key: `%s%d__startHeight__${period}`, type: 'integer', value: nextBlockToProcess },
       { key: `%s%d__price__${period}`, type: 'integer', value: price },
       { key: '%s__periodLength', type: 'integer', value: periodLength },
+      { key: '%s__investPeriodLength', type: 'integer', value: investPeriodLength },
       { key: '%s__blockProcessingReward', type: 'integer', value: blockProcessingReward },
       { key: '%s%s__invested__WAVES', type: 'integer', value: investedWavesAmount },
       { key: '%s%s__donated__WAVES', type: 'integer', value: donatedWavesAmount }

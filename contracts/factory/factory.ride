@@ -310,7 +310,11 @@ func claimLP() =
 
 @Callable(i)
 func claimCollateral(txIdStr: String) =
-  (nil, calculatorAddressOrFail.reentrantInvoke("claimCollateral", [i.caller.bytes, txIdStr.fromBase58String()], i.payments))
+  (nil, calculatorAddressOrFail.reentrantInvoke("claimCollateral", [i.caller.bytes, txIdStr], i.payments))
+
+@Callable(i)
+func claimCollateralBulk(txIds: List[String]) =
+  (nil, calculatorAddressOrFail.reentrantInvoke("claimCollateralBulk", [i.caller.bytes, txIds], i.payments))
 
 @Callable(i)
 func invest() =
@@ -332,7 +336,15 @@ func processBlocks() = (nil, calculatorAddressOrFail.reentrantInvoke("processBlo
 func claimCollateralREADONLY(userAddress: String, txIdStr: String) = {
   (nil, calculatorAddressOrFail.reentrantInvoke(
     "claimCollateralREADONLY",
-    [userAddress.fromBase58String(), txIdStr.fromBase58String()], []
+    [userAddress.fromBase58String(), txIdStr], []
+  ))
+}
+
+@Callable(i)
+func claimCollateralBulkREADONLY(userAddress: String, txIds: List[String]) = {
+  (nil, calculatorAddressOrFail.reentrantInvoke(
+    "claimCollateralBulkREADONLY",
+    [userAddress.fromBase58String(), txIds], []
   ))
 }
 
