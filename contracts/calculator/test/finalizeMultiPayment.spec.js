@@ -7,17 +7,16 @@ import { invokeScript, transfer, issue } from '@waves/waves-transactions'
 chai.use(chaiAsPromised)
 const { expect } = chai
 
-const scale8 = 1e8
-
 describe(`[${process.pid}] calculator: finalizeMultiPayment`, () => {
   let accounts
   const paymentAmount = 1
   const periodLength = 1
-  const newTreasuryVolumeInWaves = 10000 * 1e8
-  const pwrManagersBonusInWaves = 700 * 1e8
-  const treasuryVolumeDiffAllocationCoef = -0.5
-  const initialInvestInWaves = 5000 * 1e8
+  const initialLpInWaves = 5000 * 1e8
   const initialDonatedInWaves = 3000 * 1e8
+  const newLpInWaves = 6000 * 1e8
+  const newDonatedIntWaves = 2500 * 1e8
+  const claimAmountInWaves = 0 * 1e8
+  const pwrManagersBonusInWaves = 700 * 1e8
   const blockProcessingReward = 0.015 * 1e8
 
   before(async () => {
@@ -26,7 +25,7 @@ describe(`[${process.pid}] calculator: finalizeMultiPayment`, () => {
       nextBlockToProcess: height,
       periodLength,
       blockProcessingReward,
-      investedWavesAmount: initialInvestInWaves,
+      investedWavesAmount: initialLpInWaves,
       donatedWavesAmount: initialDonatedInWaves
     }))
   })
@@ -128,12 +127,10 @@ describe(`[${process.pid}] calculator: finalizeMultiPayment`, () => {
           call: {
             function: 'finalize',
             args: [
-              { type: 'integer', value: newTreasuryVolumeInWaves },
-              { type: 'integer', value: pwrManagersBonusInWaves },
-              {
-                type: 'integer',
-                value: treasuryVolumeDiffAllocationCoef * scale8
-              }
+              { type: 'integer', value: newDonatedIntWaves },
+              { type: 'integer', value: newLpInWaves },
+              { type: 'integer', value: claimAmountInWaves },
+              { type: 'integer', value: pwrManagersBonusInWaves }
             ]
           },
           payment: [

@@ -110,18 +110,20 @@ describe(`[${process.pid}] calculator: claim collateral`, () => {
       chainId
     }, accounts.user1.seed))
 
-    const newTreasuryVolumeInWaves = 1100 * 1e8
+    const newDonatedInWaves = 2000 * 1e8
+    const newLpInWaves = 1000 * 1e8
+    const claimAmountInWaves = 100 * 1e8
     const pwrManagersBonusInWaves = 100 * 1e8
-    const treasuryVolumeDiffAllocationCoef = 0
     const [{ quantity }] = await api.assets.fetchDetails([lpAssetId])
     await broadcastAndWait(invokeScript({
       dApp: accounts.factory.address,
       call: {
         function: 'finalize',
         args: [
-          { type: 'integer', value: newTreasuryVolumeInWaves },
-          { type: 'integer', value: pwrManagersBonusInWaves },
-          { type: 'integer', value: treasuryVolumeDiffAllocationCoef }
+          { type: 'integer', value: newDonatedInWaves },
+          { type: 'integer', value: newLpInWaves },
+          { type: 'integer', value: claimAmountInWaves },
+          { type: 'integer', value: pwrManagersBonusInWaves }
         ]
       },
       payment: [
@@ -147,9 +149,7 @@ describe(`[${process.pid}] calculator: claim collateral`, () => {
     const stateChangesTransfers = stateChanges.invokes[0].stateChanges.invokes[2].stateChanges.transfers
 
     const { value: price } = await api.addresses.fetchDataKey(accounts.factory.address, '%s%d__price__1')
-    const profitRaw = newTreasuryVolumeInWaves - investedWavesAmount
-    const profit = profitRaw - pwrManagersBonusInWaves
-    const expectedPrice = Math.floor((investedWavesAmount + profit) * scale8 / quantity)
+    const expectedPrice = Math.floor(newLpInWaves * scale8 / (quantity - paymentAmount))
     expect(price).to.equal(expectedPrice)
     expect(stateChangesTransfers).to.deep.equal([
       {

@@ -241,8 +241,8 @@ func transferAsset(recipientBytes: ByteVector, amount: Int, assetId: ByteVector)
 @Callable(i)
 func transferAssets(recipientBytes: ByteVector, assetsList: List[String], amountsList: List[String]) = {
   if (i.onlyCalculator()) then {
-    func addNewTransfer(accum: (List[ScriptTransfer], Int), nextAssetId: String) = {
-      let (transfers, j) = accum
+    func addNewTransfer(acc: (List[ScriptTransfer], Int), nextAssetId: String) = {
+      let (transfers, j) = acc
 
       let newTransfer = ScriptTransfer(
         Address(recipientBytes),
@@ -271,9 +271,10 @@ func transferFromProxyTreasury(recipientBytes: ByteVector, rewardsAmount: Int) =
 # finalize period
 @Callable(i)
 func finalize(
-  newTreasuryVolumeInWaves: Int,
-  pwrManagersBonusInWaves: Int,
-  treasuryVolumeDiffAllocationCoef: Int
+  donationPartInWaves: Int,
+  lpPartInWaves: Int,
+  claimPartInWaves: Int,
+  powerStakePartInWaves: Int
 ) = {
   (
     nil,
@@ -281,9 +282,10 @@ func finalize(
       "finalize",
       [
         i.caller.bytes,
-        newTreasuryVolumeInWaves,
-        pwrManagersBonusInWaves,
-        treasuryVolumeDiffAllocationCoef
+        donationPartInWaves,
+        lpPartInWaves,
+        claimPartInWaves,
+        powerStakePartInWaves
       ],
       i.payments
     )
@@ -292,7 +294,7 @@ func finalize(
 
 # Returned values:
 #
-# _1 = wavesToClaimPaymentAmount
+# _1 = wavesToClaimAmount
 # _2 = newInvestedWavesAmount
 # _3 = newDonatedWavesAmountNew
 # _4 = newPrice
@@ -301,18 +303,20 @@ func finalize(
 #
 @Callable(i)
 func finalizeREADONLY(
-  newTreasuryVolumeInWaves: Int,
-  pwrManagersBonusInWaves: Int,
-  treasuryVolumeDiffAllocationCoef: Int
+  donationPartInWaves: Int,
+  lpPartInWaves: Int,
+  claimPartInWaves: Int,
+  powerStakePartInWaves: Int
 ) = {
   (
     nil,
     calculatorAddressOrFail.reentrantInvoke(
       "finalizeREADONLY",
       [
-        newTreasuryVolumeInWaves,
-        pwrManagersBonusInWaves,
-        treasuryVolumeDiffAllocationCoef
+        donationPartInWaves,
+        lpPartInWaves,
+        claimPartInWaves,
+        powerStakePartInWaves
       ], []
     )
   )

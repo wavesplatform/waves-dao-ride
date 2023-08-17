@@ -49,6 +49,7 @@ func keyCurrentPeriod() = ["%s", "currentPeriod"].makeString(SEP)
 func keyPriceForPeriod(period: Int) = ["%s%d", "price", period.toString()].makeString(SEP)
 func keyStartHeight(period: Int) = ["%s%d", "startHeight", period.toString()].makeString(SEP)
 func keyPowerManagerBonus(period: Int) = ["%s%d", "powerManagerBonus", period.toString()].makeString(SEP)
+func keyClaimWavesAmount(period: Int) = ["%s%d", "claimWavesAmount", period.toString()].makeString(SEP)
 func keyPeriodLength() = "%s__periodLength"
 func keyInvestPeriodLength() = "%s__investPeriodLength"
 func keyBlockProcessingReward() = "%s__blockProcessingReward"
@@ -171,69 +172,17 @@ func rewardForOption(rewards: List[(Address, Int)], target: Address) = {
   else unit
 }
 
-func finalizeINTERNAL(
-  newTreasuryVolumeInWaves: Int,
-  pwrManagersBonusInWaves: Int,
-  treasuryVolumeDiffAllocationCoef: Int
-) = {
-  let donatedWavesAmount = factoryAddressOrFail.getInteger(
-    keyDonated(unit)
-  ).valueOrElse(0)
-  let investedWavesAmount = factoryAddressOrFail.getInteger(
-    keyInvested(unit)
-  ).valueOrElse(0)
-
-  let currentTreasuryVolumeInWaves = donatedWavesAmount + investedWavesAmount
-  let profitRaw = newTreasuryVolumeInWaves - currentTreasuryVolumeInWaves
-
-  let pwrManagersBonusAmount = if (pwrManagersBonusInWaves <= profitRaw || pwrManagersBonusInWaves == 0)
-    then pwrManagersBonusInWaves
-    else throwErr("power bonus is more than profit")
-  let profit = profitRaw - pwrManagersBonusAmount
-  let donationPart = if (currentTreasuryVolumeInWaves > 0)
-    then fraction(donatedWavesAmount, SCALE8, currentTreasuryVolumeInWaves)
-    else 0
-  let donationProfitPartRaw = fraction(profit, donationPart, SCALE8)
-  let investmentProfitPartRaw = profit - donationProfitPartRaw
-  let treasuryVolumeDiffAllocationCoefAbs = abs(treasuryVolumeDiffAllocationCoef)
-  let amountToDonation = fraction(
-    investmentProfitPartRaw,
-    if (treasuryVolumeDiffAllocationCoef < 0) then treasuryVolumeDiffAllocationCoefAbs else 0,
-    SCALE8
-  )
-  let amountToInvestment = fraction(
-    donationProfitPartRaw,
-    if (treasuryVolumeDiffAllocationCoef > 0) then treasuryVolumeDiffAllocationCoefAbs else 0,
-    SCALE8
-  )
-  let donationProfitPart = donationProfitPartRaw - amountToInvestment + amountToDonation
-  let investmentProfitPart = investmentProfitPartRaw - amountToDonation + amountToInvestment
-
-  let donatedWavesAmountNewRaw = donatedWavesAmount + donationProfitPart
-  let investedWavesAmountNewRaw = investedWavesAmount + investmentProfitPart
-  
-  let donatedPartDebt = min([0, donatedWavesAmountNewRaw])
-  let investedPartDebt = min([0, investedWavesAmountNewRaw])
-
-  let donatedWavesAmountNew = max([0, donatedWavesAmountNewRaw]) + investedPartDebt
-  let investedWavesAmountNew = max([0, investedWavesAmountNewRaw]) + donatedPartDebt
-
+func calculatePrice(lpPartInWaves: Int) = {
   # calculate new price
+  let lpAssetAmountToBurn = factoryAddressOrFail.getInteger(keyWithdrawal()).valueOrElse(0)
   let lpAssetQuantity = lpAssetIdOrFail.assetInfo()
     .valueOrErrorMessage(wrapErr("invalid lpAsset info")).quantity
-  let newPrice = fraction(investedWavesAmountNew, SCALE8, lpAssetQuantity)
-  strict checkIfPriceNotZero =  (newPrice != 0) || throwErr("LP price cannot be 0")
+  let newPrice = fraction(lpPartInWaves, SCALE8, lpAssetQuantity - lpAssetAmountToBurn)
+  strict checkIfPriceNotZero = (newPrice != 0) || throwErr("LP price cannot be 0")
 
-  let lpAssetAmountToBurn = factoryAddressOrFail.getInteger(keyWithdrawal()).valueOrElse(0)
-  let paymentAmountMin = max([0, fraction(lpAssetAmountToBurn, newPrice, SCALE8)])
-
-  let finalInvestedWavesAmount = investedWavesAmountNew - paymentAmountMin
   let lpAssetFinalQuantity = lpAssetQuantity - lpAssetAmountToBurn
   
   (
-    paymentAmountMin,
-    finalInvestedWavesAmount,
-    donatedWavesAmountNew,
     newPrice,
     lpAssetAmountToBurn,
     lpAssetFinalQuantity
@@ -310,17 +259,14 @@ func claimLP(userAddressBytes: ByteVector) = {
   (nil, factoryActions)
 }
 
-# payment in waves to fulfill all withdrawal requests
-# treasuryVolumeDiffAllocationCoef:
-#   [-1, 0) - profit to donation
-#   0 - in proportion
-#   (0, 1] - profit to investment
+# payment in any assets to fulfill all withdrawal requests
 @Callable(i)
 func finalize(
   userAddressBytes: ByteVector,
-  newTreasuryVolumeInWaves: Int,
-  pwrManagersBonusInWaves: Int,
-  treasuryVolumeDiffAllocationCoef: Int # -1..1×10⁸
+  donationPartInWaves: Int,
+  lpPartInWaves: Int,
+  claimPartInWaves: Int,
+  powerStakePartInWaves: Int
 ) = {
   strict checkCaller = i.onlyFactory()
   let currentPeriodOrFail =
@@ -344,21 +290,18 @@ func finalize(
   strict checks = [
     i.originCaller == mainTreasuryAddressOrFail || throwErr("permission denied"),
     nextBlockToProcess > periodEndHeight || throwErr("unprocessed blocks"),
-    newTreasuryVolumeInWaves >= 0 || throwErr("invalid new treasury volume"),
-    pwrManagersBonusInWaves >= 0 || throwErr("invalid PWR managers bonus"),
-    treasuryVolumeDiffAllocationCoef >= -SCALE8 && treasuryVolumeDiffAllocationCoef <= SCALE8
-      || throwErr("invalid treasury volume diff allocation coefficient")
+    donationPartInWaves >= 0 || throwErr("invalid donation part"),
+    lpPartInWaves >= 0 || throwErr("invalid lp part"),
+    claimPartInWaves >= 0 || throwErr("invalid claim part"),
+    powerStakePartInWaves >= 0 || throwErr("invalid PWR stake part")
   ]
 
-  # Finalize calculations
+  # Price calculations
   let (
-    paymentAmountMin,
-    finalInvestedWavesAmount, 
-    donatedWavesAmountNew, 
-    newPrice, 
-    lpAssetAmountToBurn, 
+    newPrice,
+    lpAssetAmountToBurn,
     lpAssetFinalQuantity
-  ) = finalizeINTERNAL(newTreasuryVolumeInWaves, pwrManagersBonusInWaves, treasuryVolumeDiffAllocationCoef)
+  ) = calculatePrice(lpPartInWaves)
 
   let newPeriod = currentPeriodOrFail + 1
 
@@ -379,7 +322,11 @@ func finalize(
   let factoryActions = [
     # write power manager bonus
     factoryAddressOrFail.invoke(
-      "integerEntry", [keyPowerManagerBonus(currentPeriodOrFail), pwrManagersBonusInWaves], []
+      "integerEntry", [keyPowerManagerBonus(currentPeriodOrFail), powerStakePartInWaves], []
+    ),
+    # write claim amount in waves
+    factoryAddressOrFail.invoke(
+      "integerEntry", [keyClaimWavesAmount(currentPeriodOrFail), claimPartInWaves], []
     ),
     # update period
     factoryAddressOrFail.invoke("integerEntry", [keyCurrentPeriod(), newPeriod], []),
@@ -390,9 +337,9 @@ func finalize(
     factoryAddressOrFail.invoke("burn", [lpAssetAmountToBurn], []),
     factoryAddressOrFail.invoke("integerEntry", [keyWithdrawal(), 0], []),
     # new invested amount
-    factoryAddressOrFail.invoke("integerEntry", [keyInvested(unit), finalInvestedWavesAmount], []),
+    factoryAddressOrFail.invoke("integerEntry", [keyInvested(unit), lpPartInWaves], []),
     # new donated amount
-    factoryAddressOrFail.invoke("integerEntry", [keyDonated(unit), donatedWavesAmountNew], []),
+    factoryAddressOrFail.invoke("integerEntry", [keyDonated(unit), donationPartInWaves], []),
     # new period treasury
     factoryAddressOrFail.invoke("stringEntry", [keyPeriodWithdrawalAssetIds(newPeriod), AssetIds], []),
     factoryAddressOrFail.invoke("stringEntry", [keyPeriodWithdrawalAmounts(newPeriod), Amounts], [])
@@ -412,9 +359,10 @@ func finalize(
 #
 @Callable(i)
 func finalizeREADONLY(
-  newTreasuryVolumeInWaves: Int,
-  pwrManagersBonusInWaves: Int,
-  treasuryVolumeDiffAllocationCoef: Int # -1..1×10⁸
+  donationPartInWaves: Int,
+  lpPartInWaves: Int,
+  claimPartInWaves: Int,
+  powerStakePartInWaves: Int
 ) = {
   let currentPeriodOrFail =
     factoryAddressOrFail.getInteger(keyCurrentPeriod())
@@ -436,14 +384,30 @@ func finalizeREADONLY(
 
   strict checks = [
     nextBlockToProcess > periodEndHeight || throwErr("unprocessed blocks"),
-    newTreasuryVolumeInWaves >= 0 || throwErr("invalid new treasury volume"),
-    pwrManagersBonusInWaves >= 0 || throwErr("invalid PWR managers bonus"),
-    treasuryVolumeDiffAllocationCoef >= -SCALE8 && treasuryVolumeDiffAllocationCoef <= SCALE8
-      || throwErr("invalid treasury volume diff allocation coefficient")
+    donationPartInWaves >= 0 || throwErr("invalid donation part"),
+    lpPartInWaves >= 0 || throwErr("invalid lp part"),
+    claimPartInWaves >= 0 || throwErr("invalid claim part"),
+    powerStakePartInWaves >= 0 || throwErr("invalid PWR stake part")
   ]
 
-  # Finalize calculations
-  ([], finalizeINTERNAL(newTreasuryVolumeInWaves, pwrManagersBonusInWaves, treasuryVolumeDiffAllocationCoef))
+  # Price calculations
+  let (
+    newPrice,
+    lpAssetAmountToBurn,
+    lpAssetFinalQuantity
+  ) = calculatePrice(lpPartInWaves)
+
+  (
+    [], 
+    (
+      claimPartInWaves, 
+      lpPartInWaves, 
+      donationPartInWaves, 
+      newPrice, 
+      lpAssetAmountToBurn, 
+      lpAssetFinalQuantity
+    )
+  )
 }
 
 # payment in waves

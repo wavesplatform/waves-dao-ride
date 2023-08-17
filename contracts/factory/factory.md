@@ -79,7 +79,7 @@ func cancelWithdraw(txIdStr: String)
 
 #### Claim Collateral
 
-Claim Collateral from withdraw request at current price. 
+Claim Collateral from withdraw request
 `txIdStr` - withdraw request TxId
 
 ```
@@ -125,17 +125,13 @@ func processBlocks()
 ### Finalize evaluation
 Evaluate finalization results and required Waves amount to finish finalization.
 Arguments:
-- `newTreasuryVolumeInWaves` - Total treasury volume in Waves, include Invested and Donated amounts
-- `pwrManagersBonusInWaves` - Power Manager bonus in Waves, this amount is deducted from Total profit when LP Price is calculated
-- `treasuryVolumeDiffAllocationCoef` - Allocation coefficient ([-100000000; 100000000]), Profit/Loss distribution proportion.
-  - `0` - Profit/Loss distributed to Invested and Donated evenly by their amounts proportions
-  - `-100000000` All Profit/Loss is allocated to Donated part
-  - `100000000` All Profit/Loss is allocated to Invested part
-  - `-60000000` 60% of Invested Profit/Loss part is added to Donated part
-  - `44000000` 44% of Donated Profit/Loss part is added to Invested part
+- `donationPartInWaves` - New Donated part value in Waves
+- `lpPartInWaves` - New LP part in Waves
+- `claimPartInWaves` - Claim amount in Waves
+- `powerStakePartInWaves` - PWR stake part in Waves
 
 Return values:
-- `_1 = wavesToClaimPaymentAmount` - amount of Waves in payment needed to finish finalization
+- `_1 = wavesToClaimAmount` - claim amount in waves
 - `_2 = newInvestedWavesAmount` - new Invested Waves amount after finalization
 - `_3 = newDonatedWavesAmountNew` - new Donated Waves amount after finalization
 - `_4 = newPrice` - new Price for next Period
@@ -145,9 +141,10 @@ Return values:
 ```
 @Callable(i)
 func finalizeREADONLY(
-  newTreasuryVolumeInWaves: Int,
-  pwrManagersBonusInWaves: Int,
-  treasuryVolumeDiffAllocationCoef: Int
+  donationPartInWaves: Int,
+  lpPartInWaves: Int,
+  claimPartInWaves: Int,
+  powerStakePartInWaves: Int
 )
 ```
 
@@ -156,25 +153,22 @@ func finalizeREADONLY(
 ### Finalization
 
 Finalize current period and calculate new Price. 
-- Payment should include exact Waves amount needed to process all withdrawal requests.
+- Payment should include payments in any assets to process withdrawal requests.
 - Can only be called by Main Treasury
 
 Arguments:
-- `newTreasuryVolumeInWaves` - Total treasury volume in Waves, include Invested and Donated amounts
-- `pwrManagersBonusInWaves` - Power Manager bonus in Waves, this amount is deducted from Total profit when LP Price is calculated
-- `treasuryVolumeDiffAllocationCoef` - Allocation coefficient ([-100000000; 100000000]), Profit/Loss distribution proportion.
-  - `0` - Profit/Loss distributed to Invested and Donated evenly by their amounts proportions
-  - `-100000000` All Profit/Loss is allocated to Donated part
-  - `100000000` All Profit/Loss is allocated to Invested part
-  - `-60000000` 60% of Invested Profit/Loss part is added to Donated part
-  - `44000000` 44% of Donated Profit/Loss part is added to Invested part
+- `donationPartInWaves` - New Donated part value in Waves
+- `lpPartInWaves` - New LP part in Waves
+- `claimPartInWaves` - Claim amount in Waves
+- `powerStakePartInWaves` - PWR stake part in Waves
 
 ```
 @Callable(i)
 func finalize(
-  newTreasuryVolumeInWaves: Int,
-  pwrManagersBonusInWaves: Int,
-  treasuryVolumeDiffAllocationCoef: Int
+  donationPartInWaves: Int,
+  lpPartInWaves: Int,
+  claimPartInWaves: Int,
+  powerStakePartInWaves: Int
 )
 ```
 

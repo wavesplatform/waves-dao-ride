@@ -13,12 +13,12 @@ describe(`[${process.pid}] calculator: finalize`, () => {
   let accounts, lpAssetId
   const paymentAmount = 1
   const periodLength = 1
-  const periodReward = 2 * 1e8
-  const newTreasuryVolumeInWaves = 10000 * 1e8
-  const pwrManagersBonusInWaves = 700 * 1e8
-  const treasuryVolumeDiffAllocationCoef = -0.5
-  const initialInvestInWaves = 5000 * 1e8
+  const initialLpInWaves = 5000 * 1e8
   const initialDonatedInWaves = 3000 * 1e8
+  const newLpInWaves = 6000 * 1e8
+  const newDonatedIntWaves = 2500 * 1e8
+  const claimAmountInWaves = 0 * 1e8
+  const pwrManagersBonusInWaves = 700 * 1e8
   const blockProcessingReward = 0.015 * 1e8
 
   before(async () => {
@@ -27,7 +27,7 @@ describe(`[${process.pid}] calculator: finalize`, () => {
       nextBlockToProcess: height,
       periodLength,
       blockProcessingReward,
-      investedWavesAmount: initialInvestInWaves,
+      investedWavesAmount: initialLpInWaves,
       donatedWavesAmount: initialDonatedInWaves
     }))
   })
@@ -38,9 +38,10 @@ describe(`[${process.pid}] calculator: finalize`, () => {
       call: {
         function: 'finalize',
         args: [
-          { type: 'integer', value: newTreasuryVolumeInWaves },
-          { type: 'integer', value: pwrManagersBonusInWaves },
-          { type: 'integer', value: treasuryVolumeDiffAllocationCoef * scale8 }
+          { type: 'integer', value: newDonatedIntWaves },
+          { type: 'integer', value: newLpInWaves },
+          { type: 'integer', value: claimAmountInWaves },
+          { type: 'integer', value: pwrManagersBonusInWaves }
         ]
       },
       payment: [],
@@ -54,9 +55,10 @@ describe(`[${process.pid}] calculator: finalize`, () => {
       call: {
         function: 'finalize',
         args: [
-          { type: 'integer', value: newTreasuryVolumeInWaves },
-          { type: 'integer', value: pwrManagersBonusInWaves },
-          { type: 'integer', value: treasuryVolumeDiffAllocationCoef * scale8 }
+          { type: 'integer', value: newDonatedIntWaves },
+          { type: 'integer', value: newLpInWaves },
+          { type: 'integer', value: claimAmountInWaves },
+          { type: 'integer', value: pwrManagersBonusInWaves }
         ]
       },
       payment: [{ assetId: null, amount: paymentAmount }],
@@ -79,9 +81,10 @@ describe(`[${process.pid}] calculator: finalize`, () => {
       call: {
         function: 'finalize',
         args: [
-          { type: 'integer', value: newTreasuryVolumeInWaves },
-          { type: 'integer', value: pwrManagersBonusInWaves },
-          { type: 'integer', value: treasuryVolumeDiffAllocationCoef * scale8 }
+          { type: 'integer', value: newDonatedIntWaves },
+          { type: 'integer', value: newLpInWaves },
+          { type: 'integer', value: claimAmountInWaves },
+          { type: 'integer', value: pwrManagersBonusInWaves }
         ]
       },
       payment: [{ assetId: null, amount: paymentAmount }],
@@ -94,25 +97,7 @@ describe(`[${process.pid}] calculator: finalize`, () => {
     const [{ quantity }] = await api.assets.fetchDetails([lpAssetId])
     const { value: price } = await api.addresses.fetchDataKey(accounts.factory.address, '%s%d__price__1')
 
-    const totalReward = periodLength * periodReward - blockProcessingReward
-    const totalInvestAmount = initialInvestInWaves + totalReward
-    const totalInvestAndDonation = initialDonatedInWaves + totalInvestAmount
-    const profitOrLoss = newTreasuryVolumeInWaves - totalInvestAndDonation
-    const rawProfit = profitOrLoss - (pwrManagersBonusInWaves <= profitOrLoss ? pwrManagersBonusInWaves : 0)
-
-    const donationPart = initialDonatedInWaves / totalInvestAndDonation
-    const investPart = totalInvestAmount / totalInvestAndDonation
-    const donatedRawProfit = rawProfit * donationPart
-    const investRawProfit = rawProfit * investPart
-    let investProfit = investRawProfit
-    if (treasuryVolumeDiffAllocationCoef < 0) {
-      investProfit = investRawProfit * (1 - Math.abs(treasuryVolumeDiffAllocationCoef))
-    }
-    if (treasuryVolumeDiffAllocationCoef > 0) {
-      investProfit = investRawProfit + donatedRawProfit * Math.abs(treasuryVolumeDiffAllocationCoef)
-    }
-
-    const expectedPrice = Math.floor((totalInvestAmount + investProfit) * scale8 / quantity)
+    const expectedPrice = Math.floor(newLpInWaves * scale8 / quantity)
     expect(price, 'invalid price').to.equal(expectedPrice)
     const expectedFactoryBalance = factoryBalanceBefore + paymentAmount
     expect(factoryBalanceAfter, 'invalid factory balance').to.equal(expectedFactoryBalance)
