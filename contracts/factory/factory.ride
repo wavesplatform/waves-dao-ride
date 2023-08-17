@@ -221,17 +221,17 @@ func burn(amount: Int) =
   if (i.onlyCalculator()) then ([Burn(lpAssetIdOrFail, amount)], amount) else ([], unit)
 
 @Callable(i)
-func transferAsset(recepientBytes: ByteVector, amount: Int, assetId: ByteVector) = 
-  if (i.onlyCalculator()) then ([ScriptTransfer(Address(recepientBytes), amount, assetId)], amount) else ([], unit)
+func transferAsset(recipientBytes: ByteVector, amount: Int, assetId: ByteVector) = 
+  if (i.onlyCalculator()) then ([ScriptTransfer(Address(recipientBytes), amount, assetId)], amount) else ([], unit)
 
 @Callable(i)
-func transferAssets(recepientBytes: ByteVector, assetsList: List[String], amountsList: List[String]) = {
+func transferAssets(recipientBytes: ByteVector, assetsList: List[String], amountsList: List[String]) = {
   if (i.onlyCalculator()) then {
-    func addNewTransfer(accum: (List[ScriptTransfer], Int), nextAssetId: String) = {
-      let (transfers, j) = accum
+    func addNewTransfer(acc: (List[ScriptTransfer], Int), nextAssetId: String) = {
+      let (transfers, j) = acc
 
       let newTransfer = ScriptTransfer(
-        Address(recepientBytes),
+        Address(recipientBytes),
         amountsList[j].parseIntValue(),
         assetsList[j].stringToAssetId()
       )
@@ -247,8 +247,8 @@ func transferAssets(recepientBytes: ByteVector, assetsList: List[String], amount
 }
 
 @Callable(i)
-func transferWaves(recepientBytes: ByteVector, amount: Int) = 
-  if (i.onlyCalculator()) then ([ScriptTransfer(Address(recepientBytes), amount, unit)], amount) else ([], unit)
+func transferWaves(recipientBytes: ByteVector, amount: Int) = 
+  if (i.onlyCalculator()) then ([ScriptTransfer(Address(recipientBytes), amount, unit)], amount) else ([], unit)
 
 @Callable(i)
 func transferFromProxyTreasury(recipientBytes: ByteVector, rewardsAmount: Int) =
@@ -257,9 +257,10 @@ func transferFromProxyTreasury(recipientBytes: ByteVector, rewardsAmount: Int) =
 # finalize period
 @Callable(i)
 func finalize(
-  newTreasuryVolumeInWaves: Int,
-  pwrManagersBonusInWaves: Int,
-  treasuryVolumeDiffAllocationCoef: Int
+  donationPartInWaves: Int,
+  lpPartInWaves: Int,
+  claimPartInWaves: Int,
+  powerStakePartInWaves: Int
 ) = {
   (
     nil,
@@ -267,9 +268,10 @@ func finalize(
       "finalize",
       [
         i.caller.bytes,
-        newTreasuryVolumeInWaves,
-        pwrManagersBonusInWaves,
-        treasuryVolumeDiffAllocationCoef
+        donationPartInWaves,
+        lpPartInWaves,
+        claimPartInWaves,
+        powerStakePartInWaves
       ],
       i.payments
     )
@@ -278,7 +280,7 @@ func finalize(
 
 # Returned values:
 #
-# _1 = wavesToClaimPaymentAmount
+# _1 = wavesToClaimAmount
 # _2 = newInvestedWavesAmount
 # _3 = newDonatedWavesAmountNew
 # _4 = newPrice
@@ -287,18 +289,20 @@ func finalize(
 #
 @Callable(i)
 func finalizeREADONLY(
-  newTreasuryVolumeInWaves: Int,
-  pwrManagersBonusInWaves: Int,
-  treasuryVolumeDiffAllocationCoef: Int
+  donationPartInWaves: Int,
+  lpPartInWaves: Int,
+  claimPartInWaves: Int,
+  powerStakePartInWaves: Int
 ) = {
   (
     nil,
     calculatorAddressOrFail.reentrantInvoke(
       "finalizeREADONLY",
       [
-        newTreasuryVolumeInWaves,
-        pwrManagersBonusInWaves,
-        treasuryVolumeDiffAllocationCoef
+        donationPartInWaves,
+        lpPartInWaves,
+        claimPartInWaves,
+        powerStakePartInWaves
       ], []
     )
   )
@@ -348,9 +352,9 @@ func claimCollateralBulkREADONLY(userAddress: String, txIds: List[String]) = {
   ))
 }
 
-#####################
-# MUTISIG FUNCTIONS #
-#####################
+######################
+# MULTISIG FUNCTIONS #
+######################
 # Vote for txId that is allowed in Verifier
 @Callable(i)
 func voteForTxId(txId: String) = {
@@ -366,9 +370,9 @@ func voteForTxId(txId: String) = {
 
   voteINTERNAL(callerAddressString, keyPrefix, QUORUM, result)
 }
-#########################
-# MUTISIG FUNCTIONS END #
-#########################
+##########################
+# MULTISIG FUNCTIONS END #
+##########################
 
 @Verifier(tx)
 func verify() = {
