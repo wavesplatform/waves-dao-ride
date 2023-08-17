@@ -50,6 +50,7 @@ func keyPriceForPeriod(period: Int) = ["%s%d", "price", period.toString()].makeS
 func keyStartHeight(period: Int) = ["%s%d", "startHeight", period.toString()].makeString(SEP)
 func keyPowerManagerBonus(period: Int) = ["%s%d", "powerManagerBonus", period.toString()].makeString(SEP)
 func keyPeriodLength() = "%s__periodLength"
+func keyInvestPeriodLength() = "%s__investPeriodLength"
 func keyBlockProcessingReward() = "%s__blockProcessingReward"
 func keyNextBlockToProcess() = "%s__nextBlockToProcess"
 func keyBlockProcessed(height: Int) = ["%s%d", "blockProcessed", height.toString()].makeString(SEP)
@@ -239,7 +240,7 @@ func finalizeINTERNAL(
   )
 }
 
-func claimCollateralINTERNAL(userAddressBytes: ByteVector, txId: ByteVector, transactionId: ByteVector) = {
+func claimCollateralINTERNAL(userAddressBytes: ByteVector, txId: ByteVector) = {
   let userAddress = Address(userAddressBytes)
   let currentPeriodOrFail =
     factoryAddressOrFail.getInteger(keyCurrentPeriod()).valueOrErrorMessage(wrapErr("invalid period"))
@@ -265,7 +266,7 @@ func claimCollateralINTERNAL(userAddressBytes: ByteVector, txId: ByteVector, tra
   }
 }
 
-func claimCollateralREADONLYStringResponse(userAddressBytes: ByteVector, txId: ByteVector, transactionId: ByteVector) = {
+func claimCollateralREADONLYStringResponse(userAddressBytes: ByteVector, txId: ByteVector) = {
   let (
     userAddress,
     lpAssetAmount,
@@ -273,7 +274,7 @@ func claimCollateralREADONLYStringResponse(userAddressBytes: ByteVector, txId: B
     wavesAmount,
     assetsString,
     amountsString
-  ) = claimCollateralINTERNAL(userAddressBytes, txId, transactionId)
+  ) = claimCollateralINTERNAL(userAddressBytes, txId)
 
   let assets = assetsString.split_51C(SEP).removeByIndex(0).makeString(":")
   let amounts = amountsString.split_51C(SEP).removeByIndex(0).makeString(":")
@@ -453,6 +454,15 @@ func invest(userAddressBytes: ByteVector) = {
   let currentPeriodOrFail =
     factoryAddressOrFail.getInteger(keyCurrentPeriod())
     .valueOrErrorMessage(wrapErr("invalid period"))
+  let currentStartHeight = factoryAddressOrFail
+    .getInteger(keyStartHeight(currentPeriodOrFail))
+    .valueOrErrorMessage(wrapErr("invalid start height"))
+
+  let investPeriodLength = factoryAddressOrFail.getIntegerValue(keyInvestPeriodLength())
+
+  strict heightCheck =
+    height < currentStartHeight + investPeriodLength || throwErr("too late to invest in this period")
+
   let currentPriceOrFail =
     factoryAddressOrFail.getInteger(keyPriceForPeriod(currentPeriodOrFail))
     .valueOrErrorMessage(wrapErr("invalid price"))
@@ -559,7 +569,7 @@ func cancelWithdraw(userAddressBytes: ByteVector, txId: ByteVector) = {
 }
 
 @Callable(i)
-func claimCollateral(userAddressBytes: ByteVector, txId: ByteVector) = {
+func claimCollateral(userAddressBytes: ByteVector, txId: String) = {
   strict checkCaller = i.onlyFactory()
   
   let (
@@ -569,17 +579,17 @@ func claimCollateral(userAddressBytes: ByteVector, txId: ByteVector) = {
     wavesAmount,
     assetsString,
     amountsString
-  ) = claimCollateralINTERNAL(userAddressBytes, txId, i.transactionId)
+  ) = claimCollateralINTERNAL(userAddressBytes, txId.fromBase58String())
 
   let assetsList = assetsString.split_51C(SEP).removeByIndex(0)
   let amountsList = amountsString.split_51C(SEP).removeByIndex(0)  
 
   let factoryActions = [
     factoryAddressOrFail.invoke("deleteEntry", [
-      keyWithdrawalRequest(userAddress, txId)
+      keyWithdrawalRequest(userAddress, txId.fromBase58String())
     ], []),
     factoryAddressOrFail.invoke("integerEntry", [
-      keyWithdrawalHistory(userAddress, txId),
+      keyWithdrawalHistory(userAddress, txId.fromBase58String()),
       lpAssetAmount
     ], []),
     factoryAddressOrFail.invoke("transferAssets", [userAddressBytes, assetsList, amountsList], [])
@@ -589,10 +599,10 @@ func claimCollateral(userAddressBytes: ByteVector, txId: ByteVector) = {
 }
 
 @Callable(i)
-func claimCollateralBulk(userAddressBytes: ByteVector, txIds: List[ByteVector]) = {
+func claimCollateralBulk(userAddressBytes: ByteVector, txIds: List[String]) = {
   strict checkCaller = i.onlyFactory()
 
-  func addNewAction(state: List[Any], txId: ByteVector) = {
+  func addNewAction(state: List[Any], txId: String) = {
     let (
       userAddress,
       lpAssetAmount,
@@ -600,17 +610,17 @@ func claimCollateralBulk(userAddressBytes: ByteVector, txIds: List[ByteVector]) 
       wavesAmount,
       assetsString,
       amountsString
-    ) = claimCollateralINTERNAL(userAddressBytes, txId, i.transactionId)
+    ) = claimCollateralINTERNAL(userAddressBytes, txId.fromBase58String())
 
     let assetsList = assetsString.split_51C(SEP).removeByIndex(0)
     let amountsList = amountsString.split_51C(SEP).removeByIndex(0)
 
     let newActions = [
       factoryAddressOrFail.invoke("deleteEntry", [
-        keyWithdrawalRequest(userAddress, txId)
+        keyWithdrawalRequest(userAddress, txId.fromBase58String())
       ], []),
       factoryAddressOrFail.invoke("integerEntry", [
-        keyWithdrawalHistory(userAddress, txId),
+        keyWithdrawalHistory(userAddress, txId.fromBase58String()),
         lpAssetAmount
       ], []),
       factoryAddressOrFail.invoke("transferAssets", [userAddressBytes, assetsList, amountsList], [])
@@ -625,16 +635,16 @@ func claimCollateralBulk(userAddressBytes: ByteVector, txIds: List[ByteVector]) 
 }
 
 @Callable(i)
-func claimCollateralREADONLY(userAddressBytes: ByteVector, txId: ByteVector) = {
-  let response = claimCollateralREADONLYStringResponse(userAddressBytes, txId, i.transactionId)
+func claimCollateralREADONLY(userAddressBytes: ByteVector, txId: String) = {
+  let response = claimCollateralREADONLYStringResponse(userAddressBytes, txId.fromBase58String())
 
   (nil, response)
 }
 
 @Callable(i)
-func claimCollateralBulkREADONLY(userAddressBytes: ByteVector, txIds: List[ByteVector]) = {
-  func processTxId(state: List[String], txId: ByteVector) = {
-    let response = claimCollateralREADONLYStringResponse(userAddressBytes, txId, i.transactionId)
+func claimCollateralBulkREADONLY(userAddressBytes: ByteVector, txIds: List[String]) = {
+  func processTxId(state: List[String], txId: String) = {
+    let response = claimCollateralREADONLYStringResponse(userAddressBytes, txId.fromBase58String())
 
     state :+ response
   }
