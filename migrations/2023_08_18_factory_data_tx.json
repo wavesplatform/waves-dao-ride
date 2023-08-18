@@ -1,0 +1,44 @@
+{
+    "senderPublicKey": "7iwk3fSEypQw8aS1jGbgX19wsMviMu9tAENmGtHir9He",
+    "data": [
+        {
+            "key": "%s__businessTreasury",
+            "type": "string",
+            "value": ""
+        },
+        {
+            "key": "%s__powerContract",
+            "type": "string",
+            "value": "3P3w8TSPSRDVMLAzJcTeHnKAQsPnQgArUKy"
+        },
+        {
+            "key": "%s__swapContract",
+            "type": "string",
+            "value": "3P68zNiufsu1viZpu1aY3cdahRRKcvV5N93"
+        },
+        {
+            "key": "%s__powerAssetId",
+            "type": "string",
+            "value": "2thsACuHmzDMuNezPM32wg9a3BwUzBWDeSKakgz3cw21"
+        },
+        {
+            "key": "%s__powerShareRatio",
+            "type": "integer",
+            "value": 2000000 // 2% ???
+        },
+        {
+            "key": "%s__businessTreasuryPart",
+            "type": "integer",
+            "value": ???
+        },
+        {
+            "key": "%s__investPeriodLength",
+            "type": "integer",
+            "value": ???
+        }
+    ],
+    "proofs": [],
+    "fee": 500000,
+    "type": 12,
+    "version": 2
+}

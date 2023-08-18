@@ -31,7 +31,7 @@ describe(`[${process.pid}] calculator: process blocks`, () => {
     const blockReward = 2e8
     const powerPrice = 0.5 // Set in mock contract
     const blocksCount = Math.min(periodLength, maxProcessBlocks)
-    const sharedPartInWaves = Math.floor((blockReward * blocksCount - blockProcessingReward) * powerShareRatio)
+    const sharedPartInWaves = Math.floor(blockReward * blocksCount * powerShareRatio)
     const sharedPartInPower = Math.floor(sharedPartInWaves * powerPrice)
     const setupBalance = 100e8 // Waves amount from setup
 

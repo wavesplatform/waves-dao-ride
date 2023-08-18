@@ -322,6 +322,16 @@ func finalizeREADONLY(
   )
 }
 
+# return:
+# _1 = amountToPowerPart
+# _2 = businessTreasuryAmountPart
+# _3 = blockProcessingReward
+# _4 = toLpAmount
+# _5 = totalAmount
+@Callable(i)
+func rewardSplitREADONLY() =
+(nil, calculatorAddressOrFail.reentrantInvoke("rewardSplitREADONLY", [], []))
+
 @Callable(i)
 func claimLP() =
   (nil, calculatorAddressOrFail.reentrantInvoke("claimLP", [i.caller.bytes], i.payments))

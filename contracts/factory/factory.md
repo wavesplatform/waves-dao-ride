@@ -22,6 +22,7 @@
 | `%s%d__periodReward__<period>`       | `Int`    | Period reward assetIds list      |
 | `%s%d__periodRewardAmount__<period>` | `Int`    | Period reward assets amount list |
 | `%s__powerShareRatio`                | `Int`    | Power share ratio                |
+| `%s__businessTreasuryPart`           | `Int`    | Business treasury Part           |
 
 ### User state
 
@@ -118,6 +119,22 @@ Power assets immediately staked in Power dApp Contract
 ```
 @Callable(i)
 func processBlocks()
+```
+
+---
+
+### Reward split evaluation
+Evaluate reward split for last block
+Return values:
+- _1 = `amountToPowerPart`
+- _2 = `businessTreasuryAmountPart`
+- _3 = `blockProcessingReward`
+- _4 = `toLpAmount`
+- _5 = `totalAmount`
+
+```
+@Callable(i)
+func rewardSplitREADONLY()
 ```
 
 ---
