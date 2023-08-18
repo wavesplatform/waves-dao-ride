@@ -4,7 +4,7 @@
         {
             "key": "%s__businessTreasury",
             "type": "string",
-            "value": ""
+            "value": "3PMQvtkPVFNLtyHFNh33Aarvso6yppgUUft"
         },
         {
             "key": "%s__powerContract",
@@ -24,17 +24,17 @@
         {
             "key": "%s__powerShareRatio",
             "type": "integer",
-            "value": 2000000 // 2% ???
+            "value": 5000000
         },
         {
             "key": "%s__businessTreasuryPart",
             "type": "integer",
-            "value": ???
+            "value": 0
         },
         {
             "key": "%s__investPeriodLength",
             "type": "integer",
-            "value": ???
+            "value": 43200
         }
     ],
     "proofs": [],
