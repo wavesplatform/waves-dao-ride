@@ -367,14 +367,18 @@ func claimCollateralBulkREADONLY(userAddress: String, txIds: List[String]) = {
 }
 
 @Callable(i)
-func swap(assetId: String) = {
+func swap(assetId: String, paymentAssetId: String, paymentAmount: Int) = {
   strict check = [ i.onlyCalculator() ]
+  let paymentAsset = if (paymentAssetId == "WAVES") then unit else paymentAssetId.fromBase58String()
 
   strict initAssetBalance = if (assetId == "WAVES") 
     then this.wavesBalance().available
     else this.assetBalance(assetId.fromBase58String())
 
-  strict swapInvoke = swapContractAddressOrFail.invoke("swap", [0, assetId, this.toString()], i.payments)
+  strict swapInvoke = swapContractAddressOrFail.invoke(
+    "swap", 
+    [0, assetId, this.toString()], 
+    [AttachedPayment(paymentAsset, paymentAmount)])
   
   strict newAssetBalance = if (assetId == "WAVES") 
     then this.wavesBalance().available
@@ -384,9 +388,11 @@ func swap(assetId: String) = {
 }
 
 @Callable(i)
-func powerStake(recipientBytes: ByteVector) = 
+func powerStake(recipientBytes: ByteVector, assetIdBytes: ByteVector, amount: Int) = 
   if (i.onlyCalculator()) 
-    then (nil, powerContractAddressOrFail.invoke("commitForMiner", [Address(recipientBytes).toString()], i.payments))
+    then (nil, powerContractAddressOrFail.invoke("commitForMiner", 
+    [Address(recipientBytes).toString()], 
+    [AttachedPayment(assetIdBytes, amount)]))
     else ([], unit)
 
 ######################
