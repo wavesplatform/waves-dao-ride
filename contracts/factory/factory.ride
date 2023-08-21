@@ -107,6 +107,8 @@ func voteINTERNAL(
 
 func keyCalculatorAddress() = "%s__calculator"
 func keyProxyTreasuryAddress() = "%s__proxyTreasury" # 3PEgG7eZHLFhcfsTSaYxgRhZsh4AxMvA4Ms
+func keyPowerContractAddress() = "%s__powerContract" # TODO:
+func keySwapContractAddress() = "%s__swapContract" # TODO:
 func keyChildAddress() = "%s__child" # 3PEwRcYNAUtoFvKpBhKoiwajnZfdoDR6h4h
 # 0.005 waves to compensate the cost of the transaction
 func keyBlockProcessingReward() = "%s__blockProcessingReward"
@@ -126,6 +128,18 @@ let proxyTreasuryAddressOption = match this.getString(keyProxyTreasuryAddress())
   case _: Unit => unit
 }
 let proxyTreasuryAddressOrFail = proxyTreasuryAddressOption.valueOrErrorMessage(wrapErr("invalid proxy treasury address"))
+
+let powerContractAddressOption = match this.getString(keyPowerContractAddress()) {
+  case s: String => s.addressFromString()
+  case _: Unit => unit
+}
+let powerContractAddressOrFail = powerContractAddressOption.valueOrErrorMessage(wrapErr("invalid power contract address"))
+
+let swapContractAddressOption = match this.getString(keySwapContractAddress()) {
+  case s: String => s.addressFromString()
+  case _: Unit => unit
+}
+let swapContractAddressOrFail = swapContractAddressOption.valueOrErrorMessage(wrapErr("invalid swap contract address"))
 
 func keyConfigAddress() = "%s__config"
 
@@ -308,6 +322,16 @@ func finalizeREADONLY(
   )
 }
 
+# return:
+# _1 = amountToPowerPart
+# _2 = businessTreasuryAmountPart
+# _3 = blockProcessingReward
+# _4 = toLpAmount
+# _5 = totalAmount
+@Callable(i)
+func rewardSplitREADONLY() =
+(nil, calculatorAddressOrFail.reentrantInvoke("rewardSplitREADONLY", [], []))
+
 @Callable(i)
 func claimLP() =
   (nil, calculatorAddressOrFail.reentrantInvoke("claimLP", [i.caller.bytes], i.payments))
@@ -351,6 +375,35 @@ func claimCollateralBulkREADONLY(userAddress: String, txIds: List[String]) = {
     [userAddress.fromBase58String(), txIds], []
   ))
 }
+
+@Callable(i)
+func swap(assetId: String, paymentAssetId: String, paymentAmount: Int) = {
+  strict check = [ i.onlyCalculator() ]
+  let paymentAsset = if (paymentAssetId == "WAVES") then unit else paymentAssetId.fromBase58String()
+
+  strict initAssetBalance = if (assetId == "WAVES") 
+    then this.wavesBalance().available
+    else this.assetBalance(assetId.fromBase58String())
+
+  strict swapInvoke = swapContractAddressOrFail.invoke(
+    "swap", 
+    [0, assetId, this.toString()], 
+    [AttachedPayment(paymentAsset, paymentAmount)])
+  
+  strict newAssetBalance = if (assetId == "WAVES") 
+    then this.wavesBalance().available
+    else this.assetBalance(assetId.fromBase58String())
+
+  (nil, newAssetBalance - initAssetBalance)
+}
+
+@Callable(i)
+func powerStake(recipientBytes: ByteVector, assetIdBytes: ByteVector, amount: Int) = 
+  if (i.onlyCalculator()) 
+    then (nil, powerContractAddressOrFail.invoke("commitForMiner", 
+    [Address(recipientBytes).toString()], 
+    [AttachedPayment(assetIdBytes, amount)]))
+    else ([], unit)
 
 ######################
 # MULTISIG FUNCTIONS #

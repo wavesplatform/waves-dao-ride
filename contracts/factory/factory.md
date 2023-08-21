@@ -1,28 +1,28 @@
 ### Required state entries
 
-| key                                  | type     | description                             |
-| :----------------------------------- | :------- | :-------------------------------------- |
-| `%s__calculator`                     | `String` | Calculator Address                      |
-| `%s__proxyTreasury`                  | `String` | Proxy Treasury Address                  |
-| `%s__mainTreasury`                   | `String` | Main Treasury Address                   |
-| `%s__businessTreasury`               | `String` | Business Treasury Address               |
-| `%s__config`                         | `String` | DAO Config address                      |
-| `%s__lpAssetId`                      | `String` | LP Asset ID                             |
-| `%s__businessTreasuryPart`           | `Int`    | Business Treasury share part            |
-| `%s__currentPeriod`                  | `Int`    | Current period num                      |
-| `%s__withdrawal`                     | `Int`    | LP amount to withdraw in current period |
-| `%s__periodLength`                   | `Int`    | Period length in blocks                 |
-| `%s__investPeriodLength`             | `Int`    | Invest Period length in blocks          |
-| `%s%s__invested__WAVES`              | `Int`    | Invested Amount in Waves                |
-| `%s%s__donated__WAVES`               | `Int`    | Donated Amount in Waves                 |
-| `%s%d__startHeight__<period>`        | `Int`    | Starting Height of `<period>`           |
-| `%s%d__price__<period>`              | `Int`    | LP Asset Price for `<period>`           |
-| `%s__nextBlockToProcess`             | `Int`    | Next block height to process            |
-| `%s%d__powerManagerBonus__<period>`  | `Int`    | PWR Stake part in Waves for `<period>`  |
-| `%s%d__claimWavesAmount__<period>`   | `Int`    | Claim amount in Waves for  `<period>`   |
-| `%s%d__periodReward__<period>`       | `Int`    | Period reward assetIds list             |
-| `%s%d__periodRewardAmount__<period>` | `Int`    | Period reward assets amount list        |
-
+| key                                  | type     | description                      |
+| :----------------------------------- | :------- | :------------------------------- |
+| `%s__calculator`                     | `String` | Calculator Address               |
+| `%s__proxyTreasury`                  | `String` | Proxy Treasury Address           |
+| `%s__mainTreasury`                   | `String` | Main Treasury Address            |
+| `%s__businessTreasury`               | `String` | Business Treasury Address        |
+| `%s__powerContract`                  | `String` | Power dApp Address               |
+| `%s__swapContract`                   | `String` | WX Swap Contract Address         |
+| `%s__config`                         | `String` | DAO Config address               |
+| `%s__lpAssetId`                      | `String` | LP Asset ID                      |
+| `%s__powerAssetId`                   | `String` | Power Asset ID                   |
+| `%s__currentPeriod`                  | `Int`    | Current period num               |
+| `%s__periodLength`                   | `Int`    | Period length in blocks          |
+| `%s__investPeriodLength`             | `Int`    | Invest Period length in blocks   |
+| `%s%s__invested__WAVES`              | `Int`    | Invested Amount in Waves         |
+| `%s%s__donated__WAVES`               | `Int`    | Donated Amount in Waves          |
+| `%s%d__startHeight__<period>`        | `Int`    | Starting Height of `<period>`    |
+| `%s%d__price__<period>`              | `Int`    | LP Asset Price for `<period>`    |
+| `%s__nextBlockToProcess`             | `Int`    | Next block height to process     |
+| `%s%d__periodReward__<period>`       | `Int`    | Period reward assetIds list      |
+| `%s%d__periodRewardAmount__<period>` | `Int`    | Period reward assets amount list |
+| `%s__powerShareRatio`                | `Int`    | Power share ratio                |
+| `%s__businessTreasuryPart`           | `Int`    | Business treasury Part           |
 
 ### User state
 
@@ -112,10 +112,29 @@ claimCollateralBulkREADONLY(userAddress: String, txIds: List[String])
 ### Block processing
 
 Process block miners rewards.
+Block processing reward amount sent to caller.
+Waves amount equals to Power Share Ratio is converted to Power Asset.
+Power assets immediately staked in Power dApp Contract
 
 ```
 @Callable(i)
 func processBlocks()
+```
+
+---
+
+### Reward split evaluation
+Evaluate reward split for last block
+Return values:
+- _1 = `amountToPowerPart`
+- _2 = `businessTreasuryAmountPart`
+- _3 = `blockProcessingReward`
+- _4 = `toLpAmount`
+- _5 = `totalAmount`
+
+```
+@Callable(i)
+func rewardSplitREADONLY()
 ```
 
 ---

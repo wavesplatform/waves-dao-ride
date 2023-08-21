@@ -14,7 +14,7 @@ import wc from '@waves/ts-lib-crypto'
 chai.use(chaiAsPromised)
 const { expect } = chai
 
-describe(`[${process.pid}] calculator: process blocks2`, () => {
+describe(`[${process.pid}] calculator: process blocks`, () => {
   let accounts, lpAssetId, periodLength, blockProcessingReward
   const businessTreasuryPartValue = 1e8 / 20
 
@@ -77,15 +77,16 @@ describe(`[${process.pid}] calculator: process blocks2`, () => {
       lpAssetId
     )
     const daoBlockReward = 2e8
+    const businessTreasuryPart = businessTreasuryPartValue / 1e8
+    const businessTreasurePartAmount = daoBlockReward * businessTreasuryPart * periodLength
     const expectedBalance =
-      daoBlockReward * periodLength - blockProcessingReward
+      daoBlockReward * periodLength - blockProcessingReward - businessTreasurePartAmount
     expect(balance).to.equal(expectedBalance)
 
     const { balance: featureTreasuryBalance } =
       await api.addresses.fetchBalance(accounts.mainTreasury.address)
     const blockReward = 2e8
     const setupBalance = 100e8 // Waves amount from setup
-    const businessTreasuryPart = businessTreasuryPartValue / 1e8
     const featureTreasuryPart = 1 - businessTreasuryPart
     const expectedFeatureTreasuryBalance =
       blockReward * periodLength * featureTreasuryPart -
