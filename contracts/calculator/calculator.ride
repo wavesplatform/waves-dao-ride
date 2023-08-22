@@ -519,10 +519,21 @@ func invest(userAddressBytes: ByteVector) = {
 @Callable(i)
 func withdraw(userAddressBytes: ByteVector) = {
   strict checkCaller = i.onlyFactory()
+
   let userAddress = Address(userAddressBytes)
   let currentPeriodOrFail =
     factoryAddressOrFail.getInteger(keyCurrentPeriod())
     .valueOrErrorMessage(wrapErr("invalid period"))
+  let periodLength =
+    factoryAddressOrFail.getInteger(keyPeriodLength())
+    .valueOrErrorMessage(wrapErr("invalid period length"))
+  let currentStartHeight = factoryAddressOrFail
+    .getInteger(keyStartHeight(currentPeriodOrFail))
+    .valueOrErrorMessage(wrapErr("invalid start height"))
+
+  strict heightCheck =
+    height < currentStartHeight + periodLength || throwErr("too late to withdraw in this period")
+
   let payment = if (i.payments.size() == 1) then i.payments[0] else throwErr(wrapErr("invalid payments"))
   let paymentAssetId = if (payment.assetId == lpAssetIdOrFail) then lpAssetIdOrFail else throwErr("invalid payment asset")
   let paymentAmount = if (payment.amount > 0) then payment.amount else throwErr("invalid payment amount")
@@ -550,37 +561,7 @@ func withdraw(userAddressBytes: ByteVector) = {
 @Callable(i)
 func cancelWithdraw(userAddressBytes: ByteVector, txId: ByteVector) = {
   strict checkCaller = i.onlyFactory()
-  let userAddress = Address(userAddressBytes)
-  let withdrawalRequestOption = factoryAddressOrFail
-    .getString(keyWithdrawalRequest(userAddress, txId))
-    .valueOrErrorMessage(wrapErr("invalid withdrawal request"))
-  let currentPeriodOrFail =
-    factoryAddressOrFail.getInteger(keyCurrentPeriod())
-    .valueOrErrorMessage(wrapErr("invalid period"))
-  let (status, lpAssetAmount, targetPeriod, claimTxId) = parseWithdrawalRequestValueOrFail(withdrawalRequestOption)
-  strict checks = [
-    status == PENDING || throwErr("invalid withdrawal request status"),
-    targetPeriod > currentPeriodOrFail || throwErr("invalid withdrawal request period")
-  ]
-
-  let withdrawal = factoryAddressOrFail.getInteger(keyWithdrawal())
-    .valueOrErrorMessage(wrapErr("invalid total withdrawal amount"))
-  strict factoryActions = [
-    # decrease total withdrawal amount
-    factoryAddressOrFail.invoke("integerEntry", [
-      keyWithdrawal(),
-      if (withdrawal >= lpAssetAmount)
-        then withdrawal - lpAssetAmount
-        else throwErr("invalid withdrawal amount")
-    ], []),
-    factoryAddressOrFail.invoke("deleteEntry", [
-      keyWithdrawalRequest(userAddress, txId)
-    ], []),
-    factoryAddressOrFail.invoke("transferAsset", [
-      userAddressBytes, lpAssetAmount, lpAssetIdOrFail
-    ], [])
-  ]
-  (nil, factoryActions)
+  throwErr("cancelWithdraw is deprecated")
 }
 
 @Callable(i)
