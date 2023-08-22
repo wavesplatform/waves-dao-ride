@@ -1,6 +1,6 @@
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
-import { api, chainId, broadcastAndWait, baseSeed } from '../../../utils/api.js'
+import { api, chainId, broadcastAndWait, baseSeed, waitForHeight } from '../../../utils/api.js'
 import { setup } from './_setup.js'
 import { invokeScript, transfer, issue } from '@waves/waves-transactions'
 
@@ -8,9 +8,11 @@ chai.use(chaiAsPromised)
 const { expect } = chai
 
 const scale8 = 1e8
+const periodLen = 5
+const paymentAmount = 1e8
 
 describe(`[${process.pid}] calculator: claim collateral`, () => {
-  let accounts, lpAssetId, investedWavesAmount
+  let accounts, lpAssetId, investedWavesAmount, startHeight
 
   before(async () => {
     const { height } = await api.blocks.fetchHeight()
@@ -18,17 +20,13 @@ describe(`[${process.pid}] calculator: claim collateral`, () => {
     ({ accounts, lpAssetId } = await setup({
       investedWavesAmount,
       nextBlockToProcess: height,
-      periodLength: 1
+      periodLength: periodLen
     }))
 
-    await broadcastAndWait(invokeScript({
-      dApp: accounts.factory.address,
-      call: { function: 'processBlocks', args: [] },
-      chainId
-    }, accounts.user1.seed))
+    startHeight = height
 
-    const paymentAmount = 1e8
     investedWavesAmount += paymentAmount
+
     await broadcastAndWait(invokeScript({
       dApp: accounts.factory.address,
       call: { function: 'invest', args: [] },
@@ -38,8 +36,6 @@ describe(`[${process.pid}] calculator: claim collateral`, () => {
   })
 
   it('user should successfully claim assets after finalization', async () => {
-    const paymentAmount = 1e8
-
     const { id: firstAssetId } = await broadcastAndWait(
       issue(
         {
@@ -114,7 +110,17 @@ describe(`[${process.pid}] calculator: claim collateral`, () => {
     const newLpInWaves = 1000 * 1e8
     const claimAmountInWaves = 100 * 1e8
     const pwrManagersBonusInWaves = 100 * 1e8
+
+    await waitForHeight(startHeight + periodLen + 1)
+
+    await broadcastAndWait(invokeScript({
+      dApp: accounts.factory.address,
+      call: { function: 'processBlocks', args: [] },
+      chainId
+    }, accounts.user1.seed))
+
     const [{ quantity }] = await api.assets.fetchDetails([lpAssetId])
+
     await broadcastAndWait(invokeScript({
       dApp: accounts.factory.address,
       call: {
@@ -150,8 +156,8 @@ describe(`[${process.pid}] calculator: claim collateral`, () => {
 
     const { value: price } = await api.addresses.fetchDataKey(accounts.factory.address, '%s%d__price__1')
     const expectedPrice = Math.floor(newLpInWaves * scale8 / (quantity - paymentAmount))
-    expect(price).to.equal(expectedPrice)
-    expect(stateChangesTransfers).to.deep.equal([
+    expect(price, 'wrong price').to.equal(expectedPrice)
+    expect(stateChangesTransfers, 'wrong collateral transfers').to.deep.equal([
       {
         address: accounts.user1.address,
         asset: firstAssetId,

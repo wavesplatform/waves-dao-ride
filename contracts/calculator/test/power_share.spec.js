@@ -9,7 +9,7 @@ const { expect } = chai
 
 describe(`[${process.pid}] calculator: process blocks`, () => {
   const powerShareRatio = 0.13
-  const maxProcessBlocks = 20 // Set in calculator.ride
+  const maxProcessBlocks = 10 // Set in calculator.ride
 
   let accounts, periodLength, blockProcessingReward, powerAssetId
   before(async () => {

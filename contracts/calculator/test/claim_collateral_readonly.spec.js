@@ -4,6 +4,7 @@ import {
   api,
   chainId,
   broadcastAndWait,
+  waitForHeight,
   baseSeed
 } from '../../../utils/api.js'
 import { setup } from './_setup.js'
@@ -13,9 +14,10 @@ chai.use(chaiAsPromised)
 const { expect } = chai
 
 const scale8 = 1e8
+const periodLen = 5
 
 describe(`[${process.pid}] calculator: claim collateral readonly`, () => {
-  let accounts, lpAssetId, investedWavesAmount
+  let accounts, lpAssetId, investedWavesAmount, startHeight
 
   before(async () => {
     const { height } = await api.blocks.fetchHeight()
@@ -23,19 +25,10 @@ describe(`[${process.pid}] calculator: claim collateral readonly`, () => {
     ({ accounts, lpAssetId } = await setup({
       investedWavesAmount,
       nextBlockToProcess: height,
-      periodLength: 1
+      periodLength: periodLen
     }))
 
-    await broadcastAndWait(
-      invokeScript(
-        {
-          dApp: accounts.factory.address,
-          call: { function: 'processBlocks', args: [] },
-          chainId
-        },
-        accounts.user1.seed
-      )
-    )
+    startHeight = height
 
     const paymentAmount = 1e8
     investedWavesAmount += paymentAmount
@@ -149,6 +142,20 @@ describe(`[${process.pid}] calculator: claim collateral readonly`, () => {
     const newLpInWaves = 100 * 1e8
     const claimAmountInWaves = 100 * 1e8
     const pwrManagersBonusInWaves = 100 * 1e8
+
+    await waitForHeight(startHeight + periodLen + 1)
+
+    await broadcastAndWait(
+      invokeScript(
+        {
+          dApp: accounts.factory.address,
+          call: { function: 'processBlocks', args: [] },
+          chainId
+        },
+        accounts.user1.seed
+      )
+    )
+
     await broadcastAndWait(
       invokeScript(
         {

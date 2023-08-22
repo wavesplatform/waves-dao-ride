@@ -7,6 +7,7 @@ let CONTRACT_NAME = "calculator.ride"
 let SCALE8 = 100_000_000
 let PENDING = "PENDING"
 let WAVES = "WAVES"
+let blocksProcessingBatchSizeMax = 10
 
 func wrapErr(s: String) = {
   CONTRACT_NAME + ": " + s
@@ -253,7 +254,6 @@ func getRewardSplit(generatorRewardAmount: Int) = {
 }
 
 func calcRewardSplitForAmount(amount: Int) = {
-  let blocksProcessingBatchSizeMax = 20
   let (amountToPowerPart, businessTreasuryAmountPart, rewardRemainder) = getRewardSplit(amount)
   let blockProcessingReward = factoryAddressOrFail
     .getInteger(keyBlockProcessingReward())
@@ -671,7 +671,6 @@ func processBlocks(userAddressBytes: ByteVector) = {
     .valueOrErrorMessage(wrapErr("invalid next block to process"))
 
   let periodEndHeight = currentStartHeight + periodLength - 1
-  let blocksProcessingBatchSizeMax = 20
 
   # do not process blocks not in current period
   let blocksProcessingBatchSize = if (
