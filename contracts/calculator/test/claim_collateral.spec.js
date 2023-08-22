@@ -30,7 +30,7 @@ describe(`[${process.pid}] calculator: claim collateral`, () => {
     await broadcastAndWait(invokeScript({
       dApp: accounts.factory.address,
       call: { function: 'invest', args: [] },
-      payment: [{ assetId: null, amount: paymentAmount }],
+      payment: [{ assetId: null, amount: paymentAmount * 2 }],
       chainId
     }, accounts.user1.seed))
   })
@@ -106,6 +106,19 @@ describe(`[${process.pid}] calculator: claim collateral`, () => {
       chainId
     }, accounts.user1.seed))
 
+    // second withdraw
+    await broadcastAndWait(
+      invokeScript(
+        {
+          dApp: accounts.factory.address,
+          call: { function: 'withdraw', args: [] },
+          payment: [{ assetId: lpAssetId, amount: paymentAmount }],
+          chainId
+        },
+        accounts.user1.seed
+      )
+    )
+
     const newDonatedInWaves = 2000 * 1e8
     const newLpInWaves = 1000 * 1e8
     const claimAmountInWaves = 100 * 1e8
@@ -133,9 +146,9 @@ describe(`[${process.pid}] calculator: claim collateral`, () => {
         ]
       },
       payment: [
-        { assetId: firstAssetId, amount: paymentAmount },
-        { assetId: secondAssetId, amount: paymentAmount },
-        { assetId: thirdAssetId, amount: paymentAmount }
+        { assetId: firstAssetId, amount: paymentAmount * 1 },
+        { assetId: secondAssetId, amount: paymentAmount * 2 },
+        { assetId: thirdAssetId, amount: paymentAmount * 3 }
       ],
       chainId,
       additionalFee: 4e5
@@ -155,23 +168,23 @@ describe(`[${process.pid}] calculator: claim collateral`, () => {
     const stateChangesTransfers = stateChanges.invokes[0].stateChanges.invokes[2].stateChanges.transfers
 
     const { value: price } = await api.addresses.fetchDataKey(accounts.factory.address, '%s%d__price__1')
-    const expectedPrice = Math.floor(newLpInWaves * scale8 / (quantity - paymentAmount))
+    const expectedPrice = Math.floor(newLpInWaves * scale8 / (quantity - paymentAmount * 2))
     expect(price, 'wrong price').to.equal(expectedPrice)
     expect(stateChangesTransfers, 'wrong collateral transfers').to.deep.equal([
       {
         address: accounts.user1.address,
         asset: firstAssetId,
-        amount: paymentAmount
+        amount: paymentAmount * 1 / 2
       },
       {
         address: accounts.user1.address,
         asset: secondAssetId,
-        amount: paymentAmount
+        amount: paymentAmount * 2 / 2
       },
       {
         address: accounts.user1.address,
         asset: thirdAssetId,
-        amount: paymentAmount
+        amount: paymentAmount * 3 / 2
       }
     ])
   })
