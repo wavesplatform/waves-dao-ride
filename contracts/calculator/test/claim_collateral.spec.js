@@ -99,7 +99,7 @@ describe(`[${process.pid}] calculator: claim collateral`, () => {
       additionalFee: 4e5
     }, baseSeed))
 
-    const { id: withdrawTxId } = await broadcastAndWait(invokeScript({
+    const { id: withdrawTxId1 } = await broadcastAndWait(invokeScript({
       dApp: accounts.factory.address,
       call: { function: 'withdraw', args: [] },
       payment: [{ assetId: lpAssetId, amount: paymentAmount }],
@@ -160,13 +160,13 @@ describe(`[${process.pid}] calculator: claim collateral`, () => {
       call: {
         function: 'claimCollateral',
         args: [
-          { type: 'string', value: withdrawTxId }
+          { type: 'string', value: withdrawTxId1 }
         ]
       },
       chainId
     }, accounts.user1.seed))
 
-    const { stateChangesSecondClaimCollateral } = await broadcastAndWait(invokeScript({
+    await broadcastAndWait(invokeScript({
       dApp: accounts.factory.address,
       call: {
         function: 'claimCollateral',

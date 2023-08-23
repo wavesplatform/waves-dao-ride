@@ -203,7 +203,6 @@ describe(`[${process.pid}] calculator: claim collateral readonly`, () => {
     const { value: price } = await api.addresses.fetchDataKey(accounts.factory.address, '%s%d__price__1')
     const wavesAmount = Math.floor(paymentAmount * price / scale8)
 
-    console.log(response)
     const responseString = response.result.value._2.value
     const expectedString = `%d%s%s__${wavesAmount}__${firstAssetId}:${secondAssetId}:${thirdAssetId}__${paymentAmount * 1 / 2}:${paymentAmount * 2 / 2}:${paymentAmount * 3 / 2}`
 
