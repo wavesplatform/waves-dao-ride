@@ -7,6 +7,7 @@ let CONTRACT_NAME = "calculator.ride"
 let SCALE8 = 100_000_000
 let PENDING = "PENDING"
 let WAVES = "WAVES"
+let blocksProcessingBatchSizeMax = 10
 
 func wrapErr(s: String) = {
   CONTRACT_NAME + ": " + s
@@ -56,6 +57,7 @@ func keyBlockProcessingReward() = "%s__blockProcessingReward"
 func keyNextBlockToProcess() = "%s__nextBlockToProcess"
 func keyBlockProcessed(height: Int) = ["%s%d", "blockProcessed", height.toString()].makeString(SEP)
 func keyWithdrawal() = "%s__withdrawal"
+func keyWithdrawalPeriod(period: Int) = ["%s%d", "withdrawalPeriod", period.toString()].makeString(SEP)
 func keyWithdrawalRequest(userAddress: Address, txId: ByteVector) =
   ["%s%s%s", "withdrawal", userAddress.toString(), txId.toBase58String()].makeString(SEP)
 func valueWithdrawalRequest(status: String, lpAssetAmount: Int, targetPeriod: Int, claimTxId: ByteVector|Unit) = {
@@ -196,22 +198,46 @@ func claimCollateralINTERNAL(userAddressBytes: ByteVector, txId: ByteVector) = {
   let withdrawalRequestOption = factoryAddressOrFail
     .getString(keyWithdrawalRequest(userAddress, txId))
     .valueOrErrorMessage(wrapErr("invalid withdrawal request"))
-  let (status, lpAssetAmount, targetPeriod, claimTxId) = parseWithdrawalRequestValueOrFail(withdrawalRequestOption)
-  if (currentPeriodOrFail < targetPeriod) then {
+  let (status, lpAssetAmount, unlockPeriod, claimTxId) = parseWithdrawalRequestValueOrFail(withdrawalRequestOption)
+  if (currentPeriodOrFail < unlockPeriod) then {
     throwErr("invalid withdrawal request period")
   } else {
     let priceOrFail =
-      factoryAddressOrFail.getInteger(keyPriceForPeriod(targetPeriod)).valueOrErrorMessage(wrapErr("invalid price"))
+      factoryAddressOrFail.getInteger(keyPriceForPeriod(unlockPeriod)).valueOrErrorMessage(wrapErr("invalid price"))
     let wavesAmount = if (priceOrFail > 0) then fraction(lpAssetAmount, priceOrFail, SCALE8) else 0
 
+    let targetPeriod = unlockPeriod - 1
+
     let assetsString = factoryAddressOrFail.getStringValue(
-      keyPeriodWithdrawalAssetIds(currentPeriodOrFail)
+      keyPeriodWithdrawalAssetIds(targetPeriod)
     )
     let amountsString = factoryAddressOrFail.getStringValue(
-      keyPeriodWithdrawalAmounts(currentPeriodOrFail)
+      keyPeriodWithdrawalAmounts(targetPeriod)
     )
 
-    (userAddress, lpAssetAmount, targetPeriod, wavesAmount, assetsString, amountsString)
+    let totalLpAmountInPeriod = factoryAddressOrFail.getInteger(
+      keyWithdrawalPeriod(targetPeriod)
+    ).valueOrElse(0)
+
+    let userPartSCALE8 = if totalLpAmountInPeriod == 0 then {
+      0
+    } else {
+      fraction(lpAssetAmount, SCALE8, totalLpAmountInPeriod)
+    }
+
+    func getUserPartAmounts(currentState: List[String], amount: String) = {
+      let userPartAmount = fraction(amount.parseIntValue(), userPartSCALE8, SCALE8)
+      currentState :+ userPartAmount.toString()
+    }
+
+    let amountsList = amountsString.split_51C(SEP)
+    let amountsPrefix = amountsList.getElement(0).value()
+    let amountsListWithoutPrefix = amountsString.split_51C(SEP).removeByIndex(0)
+    let userPartAmounts = FOLD<10>(amountsListWithoutPrefix, [], getUserPartAmounts)
+
+    let userPartAmountsString = [amountsPrefix, userPartAmounts.makeString(SEP)].makeString(SEP)
+
+    (userAddress, lpAssetAmount, targetPeriod, wavesAmount, assetsString, userPartAmountsString)
   }
 }
 
@@ -253,7 +279,6 @@ func getRewardSplit(generatorRewardAmount: Int) = {
 }
 
 func calcRewardSplitForAmount(amount: Int) = {
-  let blocksProcessingBatchSizeMax = 20
   let (amountToPowerPart, businessTreasuryAmountPart, rewardRemainder) = getRewardSplit(amount)
   let blockProcessingReward = factoryAddressOrFail
     .getInteger(keyBlockProcessingReward())
@@ -387,13 +412,14 @@ func finalize(
     # burn total withdrawal amount
     factoryAddressOrFail.invoke("burn", [lpAssetAmountToBurn], []),
     factoryAddressOrFail.invoke("integerEntry", [keyWithdrawal(), 0], []),
+    factoryAddressOrFail.invoke("integerEntry", [keyWithdrawalPeriod(currentPeriodOrFail), lpAssetAmountToBurn], []),
     # new invested amount
     factoryAddressOrFail.invoke("integerEntry", [keyInvested(unit), lpPartInWaves], []),
     # new donated amount
     factoryAddressOrFail.invoke("integerEntry", [keyDonated(unit), donationPartInWaves], []),
     # new period treasury
-    factoryAddressOrFail.invoke("stringEntry", [keyPeriodWithdrawalAssetIds(newPeriod), AssetIds], []),
-    factoryAddressOrFail.invoke("stringEntry", [keyPeriodWithdrawalAmounts(newPeriod), Amounts], [])
+    factoryAddressOrFail.invoke("stringEntry", [keyPeriodWithdrawalAssetIds(currentPeriodOrFail), AssetIds], []),
+    factoryAddressOrFail.invoke("stringEntry", [keyPeriodWithdrawalAmounts(currentPeriodOrFail), Amounts], [])
   ]
 
   (scriptTransfers, factoryActions)
@@ -519,10 +545,21 @@ func invest(userAddressBytes: ByteVector) = {
 @Callable(i)
 func withdraw(userAddressBytes: ByteVector) = {
   strict checkCaller = i.onlyFactory()
+
   let userAddress = Address(userAddressBytes)
   let currentPeriodOrFail =
     factoryAddressOrFail.getInteger(keyCurrentPeriod())
     .valueOrErrorMessage(wrapErr("invalid period"))
+  let periodLength =
+    factoryAddressOrFail.getInteger(keyPeriodLength())
+    .valueOrErrorMessage(wrapErr("invalid period length"))
+  let currentStartHeight = factoryAddressOrFail
+    .getInteger(keyStartHeight(currentPeriodOrFail))
+    .valueOrErrorMessage(wrapErr("invalid start height"))
+
+  strict heightCheck =
+    height < currentStartHeight + periodLength || throwErr("too late to withdraw in this period")
+
   let payment = if (i.payments.size() == 1) then i.payments[0] else throwErr(wrapErr("invalid payments"))
   let paymentAssetId = if (payment.assetId == lpAssetIdOrFail) then lpAssetIdOrFail else throwErr("invalid payment asset")
   let paymentAmount = if (payment.amount > 0) then payment.amount else throwErr("invalid payment amount")
@@ -550,37 +587,7 @@ func withdraw(userAddressBytes: ByteVector) = {
 @Callable(i)
 func cancelWithdraw(userAddressBytes: ByteVector, txId: ByteVector) = {
   strict checkCaller = i.onlyFactory()
-  let userAddress = Address(userAddressBytes)
-  let withdrawalRequestOption = factoryAddressOrFail
-    .getString(keyWithdrawalRequest(userAddress, txId))
-    .valueOrErrorMessage(wrapErr("invalid withdrawal request"))
-  let currentPeriodOrFail =
-    factoryAddressOrFail.getInteger(keyCurrentPeriod())
-    .valueOrErrorMessage(wrapErr("invalid period"))
-  let (status, lpAssetAmount, targetPeriod, claimTxId) = parseWithdrawalRequestValueOrFail(withdrawalRequestOption)
-  strict checks = [
-    status == PENDING || throwErr("invalid withdrawal request status"),
-    targetPeriod > currentPeriodOrFail || throwErr("invalid withdrawal request period")
-  ]
-
-  let withdrawal = factoryAddressOrFail.getInteger(keyWithdrawal())
-    .valueOrErrorMessage(wrapErr("invalid total withdrawal amount"))
-  strict factoryActions = [
-    # decrease total withdrawal amount
-    factoryAddressOrFail.invoke("integerEntry", [
-      keyWithdrawal(),
-      if (withdrawal >= lpAssetAmount)
-        then withdrawal - lpAssetAmount
-        else throwErr("invalid withdrawal amount")
-    ], []),
-    factoryAddressOrFail.invoke("deleteEntry", [
-      keyWithdrawalRequest(userAddress, txId)
-    ], []),
-    factoryAddressOrFail.invoke("transferAsset", [
-      userAddressBytes, lpAssetAmount, lpAssetIdOrFail
-    ], [])
-  ]
-  (nil, factoryActions)
+  throwErr("cancelWithdraw is deprecated")
 }
 
 @Callable(i)
@@ -690,7 +697,6 @@ func processBlocks(userAddressBytes: ByteVector) = {
     .valueOrErrorMessage(wrapErr("invalid next block to process"))
 
   let periodEndHeight = currentStartHeight + periodLength - 1
-  let blocksProcessingBatchSizeMax = 20
 
   # do not process blocks not in current period
   let blocksProcessingBatchSize = if (

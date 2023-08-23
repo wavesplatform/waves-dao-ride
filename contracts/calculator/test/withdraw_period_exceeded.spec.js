@@ -13,8 +13,8 @@ describe(`[${process.pid}] calculator: withdraw`, () => {
   before(async () => {
     const { height } = await api.blocks.fetchHeight();
     ({ accounts, lpAssetId } = await setup({
-      nextBlockToProcess: height,
-      periodLength: 10
+      nextBlockToProcess: height - 10,
+      periodLength: 1
     }))
 
     const paymentAmount = 1e8
@@ -26,19 +26,14 @@ describe(`[${process.pid}] calculator: withdraw`, () => {
     }, accounts.user1.seed))
   })
 
-  it('total withdrawal amount should be increased', async () => {
-    const { balance: factoryBalanceBefore } = await api.assets.fetchBalanceAddressAssetId(accounts.factory.address, lpAssetId)
+  it('withdraw should be disabled if period is over', async () => {
     const paymentAmount = 1e8
-    await broadcastAndWait(invokeScript({
+    const tx = broadcastAndWait(invokeScript({
       dApp: accounts.factory.address,
       call: { function: 'withdraw', args: [] },
       payment: [{ assetId: lpAssetId, amount: paymentAmount }],
       chainId
     }, accounts.user1.seed))
-    const { balance: factoryBalanceAfter } = await api.assets.fetchBalanceAddressAssetId(accounts.factory.address, lpAssetId)
-    const { value: totalWithdrawalAmount } = await api.addresses.fetchDataKey(accounts.factory.address, '%s__withdrawal')
-    expect(totalWithdrawalAmount, 'invalid total withdrawal amount').to.equal(paymentAmount)
-    const expectedFactoryBalance = factoryBalanceBefore + paymentAmount
-    expect(factoryBalanceAfter, 'invalid factory balance').to.equal(expectedFactoryBalance)
+    return expect(tx).to.be.rejectedWith('too late to withdraw in this period')
   })
 })

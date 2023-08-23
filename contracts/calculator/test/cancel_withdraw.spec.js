@@ -11,7 +11,11 @@ describe(`[${process.pid}] calculator: cancel withdraw`, () => {
   let accounts, lpAssetId, withdrawTxId
 
   before(async () => {
-    ({ accounts, lpAssetId } = await setup())
+    const { height } = await api.blocks.fetchHeight();
+    ({ accounts, lpAssetId } = await setup({
+      nextBlockToProcess: height,
+      periodLength: 10
+    }))
 
     const paymentAmount = 1e8
     await broadcastAndWait(invokeScript({
@@ -29,20 +33,15 @@ describe(`[${process.pid}] calculator: cancel withdraw`, () => {
     }, accounts.user1.seed)))
   })
 
-  it('total withdrawal amount should be decreased', async () => {
-    const { balance: userBalanceBefore } = await api.assets.fetchBalanceAddressAssetId(accounts.user1.address, lpAssetId)
+  it('cancel withdraw should be rejected as deprecated', async () => {
     const paymentAmount = 1e8
     const { value: totalWithdrawalAmountBefore } = await api.addresses.fetchDataKey(accounts.factory.address, '%s__withdrawal')
     expect(totalWithdrawalAmountBefore).to.equal(paymentAmount)
-    await broadcastAndWait(invokeScript({
+    const tx = broadcastAndWait(invokeScript({
       dApp: accounts.factory.address,
       call: { function: 'cancelWithdraw', args: [{ type: 'string', value: withdrawTxId }] },
       chainId
     }, accounts.user1.seed))
-    const { balance: userBalanceAfter } = await api.assets.fetchBalanceAddressAssetId(accounts.user1.address, lpAssetId)
-    const { value: totalWithdrawalAmountAfter } = await api.addresses.fetchDataKey(accounts.factory.address, '%s__withdrawal')
-    expect(totalWithdrawalAmountAfter, 'invalid total withdrawal amount').to.equal(0)
-    const expectedUserBalance = userBalanceBefore + paymentAmount
-    expect(userBalanceAfter, 'invalid user balance').to.equal(expectedUserBalance)
+    return expect(tx).to.be.rejectedWith('cancelWithdraw is deprecated')
   })
 })
