@@ -57,6 +57,7 @@ func keyBlockProcessingReward() = "%s__blockProcessingReward"
 func keyNextBlockToProcess() = "%s__nextBlockToProcess"
 func keyBlockProcessed(height: Int) = ["%s%d", "blockProcessed", height.toString()].makeString(SEP)
 func keyWithdrawal() = "%s__withdrawal"
+func keyWithdrawalPeriod(period: Int) = ["%s%d", "withdrawalPeriod", period.toString()].makeString(SEP)
 func keyWithdrawalRequest(userAddress: Address, txId: ByteVector) =
   ["%s%s%s", "withdrawal", userAddress.toString(), txId.toBase58String()].makeString(SEP)
 func valueWithdrawalRequest(status: String, lpAssetAmount: Int, targetPeriod: Int, claimTxId: ByteVector|Unit) = {
@@ -197,22 +198,46 @@ func claimCollateralINTERNAL(userAddressBytes: ByteVector, txId: ByteVector) = {
   let withdrawalRequestOption = factoryAddressOrFail
     .getString(keyWithdrawalRequest(userAddress, txId))
     .valueOrErrorMessage(wrapErr("invalid withdrawal request"))
-  let (status, lpAssetAmount, targetPeriod, claimTxId) = parseWithdrawalRequestValueOrFail(withdrawalRequestOption)
-  if (currentPeriodOrFail < targetPeriod) then {
+  let (status, lpAssetAmount, unlockPeriod, claimTxId) = parseWithdrawalRequestValueOrFail(withdrawalRequestOption)
+  if (currentPeriodOrFail < unlockPeriod) then {
     throwErr("invalid withdrawal request period")
   } else {
     let priceOrFail =
-      factoryAddressOrFail.getInteger(keyPriceForPeriod(targetPeriod)).valueOrErrorMessage(wrapErr("invalid price"))
+      factoryAddressOrFail.getInteger(keyPriceForPeriod(unlockPeriod)).valueOrErrorMessage(wrapErr("invalid price"))
     let wavesAmount = if (priceOrFail > 0) then fraction(lpAssetAmount, priceOrFail, SCALE8) else 0
 
+    let targetPeriod = unlockPeriod - 1
+
     let assetsString = factoryAddressOrFail.getStringValue(
-      keyPeriodWithdrawalAssetIds(currentPeriodOrFail)
+      keyPeriodWithdrawalAssetIds(targetPeriod)
     )
     let amountsString = factoryAddressOrFail.getStringValue(
-      keyPeriodWithdrawalAmounts(currentPeriodOrFail)
+      keyPeriodWithdrawalAmounts(targetPeriod)
     )
 
-    (userAddress, lpAssetAmount, targetPeriod, wavesAmount, assetsString, amountsString)
+    let totalLpAmountInPeriod = factoryAddressOrFail.getInteger(
+      keyWithdrawalPeriod(targetPeriod)
+    ).valueOrElse(0)
+
+    let userPartSCALE8 = if totalLpAmountInPeriod == 0 then {
+      0
+    } else {
+      fraction(lpAssetAmount, SCALE8, totalLpAmountInPeriod)
+    }
+
+    func getUserPartAmounts(currentState: List[String], amount: String) = {
+      let userPartAmount = fraction(amount.parseIntValue(), userPartSCALE8, SCALE8)
+      currentState :+ userPartAmount.toString()
+    }
+
+    let amountsList = amountsString.split_51C(SEP)
+    let amountsPrefix = amountsList.getElement(0).value()
+    let amountsListWithoutPrefix = amountsString.split_51C(SEP).removeByIndex(0)
+    let userPartAmounts = FOLD<10>(amountsListWithoutPrefix, [], getUserPartAmounts)
+
+    let userPartAmountsString = [amountsPrefix, userPartAmounts.makeString(SEP)].makeString(SEP)
+
+    (userAddress, lpAssetAmount, targetPeriod, wavesAmount, assetsString, userPartAmountsString)
   }
 }
 
@@ -387,13 +412,14 @@ func finalize(
     # burn total withdrawal amount
     factoryAddressOrFail.invoke("burn", [lpAssetAmountToBurn], []),
     factoryAddressOrFail.invoke("integerEntry", [keyWithdrawal(), 0], []),
+    factoryAddressOrFail.invoke("integerEntry", [keyWithdrawalPeriod(currentPeriodOrFail), lpAssetAmountToBurn], []),
     # new invested amount
     factoryAddressOrFail.invoke("integerEntry", [keyInvested(unit), lpPartInWaves], []),
     # new donated amount
     factoryAddressOrFail.invoke("integerEntry", [keyDonated(unit), donationPartInWaves], []),
     # new period treasury
-    factoryAddressOrFail.invoke("stringEntry", [keyPeriodWithdrawalAssetIds(newPeriod), AssetIds], []),
-    factoryAddressOrFail.invoke("stringEntry", [keyPeriodWithdrawalAmounts(newPeriod), Amounts], [])
+    factoryAddressOrFail.invoke("stringEntry", [keyPeriodWithdrawalAssetIds(currentPeriodOrFail), AssetIds], []),
+    factoryAddressOrFail.invoke("stringEntry", [keyPeriodWithdrawalAmounts(currentPeriodOrFail), Amounts], [])
   ]
 
   (scriptTransfers, factoryActions)
