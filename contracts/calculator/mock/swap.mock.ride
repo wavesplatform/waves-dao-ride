@@ -1,0 +1,15 @@
+{-# STDLIB_VERSION 6 #-}
+{-# CONTENT_TYPE DAPP #-}
+{-# SCRIPT_TYPE ACCOUNT #-}
+
+let scale8 = 1_0000_0000
+
+@Callable(i)
+func swap(slippage: Int, assetIdString: String, addressString: String) = {
+    let price = 5_000_0000
+    let sendAmount = fraction(i.payments[0].amount, price, scale8)
+
+    [
+        ScriptTransfer(Address(addressString.fromBase58String()), sendAmount, assetIdString.fromBase58String())
+    ]
+}

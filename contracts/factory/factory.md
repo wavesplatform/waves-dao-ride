@@ -1,0 +1,242 @@
+### Required state entries
+
+| key                                  | type     | description                      |
+| :----------------------------------- | :------- | :------------------------------- |
+| `%s__calculator`                     | `String` | Calculator Address               |
+| `%s__proxyTreasury`                  | `String` | Proxy Treasury Address           |
+| `%s__mainTreasury`                   | `String` | Main Treasury Address            |
+| `%s__businessTreasury`               | `String` | Business Treasury Address        |
+| `%s__powerContract`                  | `String` | Power dApp Address               |
+| `%s__swapContract`                   | `String` | WX Swap Contract Address         |
+| `%s__config`                         | `String` | DAO Config address               |
+| `%s__lpAssetId`                      | `String` | LP Asset ID                      |
+| `%s__powerAssetId`                   | `String` | Power Asset ID                   |
+| `%s__currentPeriod`                  | `Int`    | Current period num               |
+| `%s__periodLength`                   | `Int`    | Period length in blocks          |
+| `%s__investPeriodLength`             | `Int`    | Invest Period length in blocks   |
+| `%s%s__invested__WAVES`              | `Int`    | Invested Amount in Waves         |
+| `%s%s__donated__WAVES`               | `Int`    | Donated Amount in Waves          |
+| `%s%d__startHeight__<period>`        | `Int`    | Starting Height of `<period>`    |
+| `%s%d__price__<period>`              | `Int`    | LP Asset Price for `<period>`    |
+| `%s__nextBlockToProcess`             | `Int`    | Next block height to process     |
+| `%s%d__periodReward__<period>`       | `Int`    | Period reward assetIds list      |
+| `%s%d__periodRewardAmount__<period>` | `Int`    | Period reward assets amount list |
+| `%s__powerShareRatio`                | `Int`    | Power share ratio                |
+| `%s__businessTreasuryPart`           | `Int`    | Business treasury Part           |
+
+### User state
+
+| key                                         | type     | description                        |
+| :------------------------------------------ | :------- | :--------------------------------- |
+| `%s%s__available__<userAddress>`            | `Int`    | Available LP Asset amount to Claim |
+| `%s%s__claimed__<userAddress>`              | `Int`    | LP Asset amount already claimed    |
+| `%s%s%s__withdrawal__<userAddress>__<txId>` | `String` | Withdrawal request parameters      |
+
+```
+# Withdrawal request value format
+%s%d%d%s__<status>__<lpAssetAmount>__<targetPeriod>__<claimTxId>
+```
+
+---
+
+### User functions
+
+#### Claim LP
+
+User can claim available LP Assets
+
+```
+@Callable(i)
+func claimLP()
+```
+#### Invest Waves
+
+User attach Waves payment and receive LP Asset at the current price
+
+```
+@Callable(i)
+func invest()
+```
+
+#### Withdraw request
+
+User attach LP Asset and creates withdraw request.
+Claim can be done at the next Period
+
+```
+@Callable(i)
+func withdraw()
+```
+
+#### Withdraw request cancellation
+
+Cancel withdraw request. 
+`txIdStr` - withdraw request TxId
+
+```
+@Callable(i)
+func cancelWithdraw(txIdStr: String)
+```
+
+#### Claim Collateral
+
+Claim Collateral from withdraw request
+`txIdStr` - withdraw request TxId
+
+```
+func claimCollateral(txIdStr: String)
+```
+
+Claim Collateral from butch withdraw requests at current price. 
+`txIds` - withdraw requests list
+```
+func claimCollateralBulk(txIds: List[String])
+```
+
+Claim Collateral from withdraw request at current price. 
+`userAddress` - user address for claim check
+`txIdStr` - withdraw request TxId
+```
+func claimCollateralREADONLY(userAddress: String, txIdStr: String)
+```
+
+Claim Collateral from butch withdraw requests at current price. 
+`userAddress` - user address for claim check
+`txIds` - withdraw requests list
+```
+claimCollateralBulkREADONLY(userAddress: String, txIds: List[String])
+```
+
+---
+
+### Block processing
+
+Process block miners rewards.
+Block processing reward amount sent to caller.
+Waves amount equals to Power Share Ratio is converted to Power Asset.
+Power assets immediately staked in Power dApp Contract
+
+```
+@Callable(i)
+func processBlocks()
+```
+
+---
+
+### Reward split evaluation
+Evaluate reward split for last block
+Return values:
+- _1 = `amountToPowerPart`
+- _2 = `businessTreasuryAmountPart`
+- _3 = `blockProcessingReward`
+- _4 = `toLpAmount`
+- _5 = `totalAmount`
+
+```
+@Callable(i)
+func rewardSplitREADONLY()
+```
+
+---
+
+### Finalize evaluation
+Evaluate finalization results and required Waves amount to finish finalization.
+Arguments:
+- `donationPartInWaves` - New Donated part value in Waves
+- `lpPartInWaves` - New LP part in Waves
+- `claimPartInWaves` - Claim amount in Waves
+- `powerStakePartInWaves` - PWR stake part in Waves
+
+Return values:
+- `_1 = wavesToClaimAmount` - claim amount in waves
+- `_2 = newInvestedWavesAmount` - new Invested Waves amount after finalization
+- `_3 = newDonatedWavesAmountNew` - new Donated Waves amount after finalization
+- `_4 = newPrice` - new Price for next Period
+- `_5 = lpAssetAmountToBurn` - Amount of LP Assets burned for all withdrawals in current Period
+- `_6 = lpAssetNewQuantity` - LP Asset new quantity
+
+```
+@Callable(i)
+func finalizeREADONLY(
+  donationPartInWaves: Int,
+  lpPartInWaves: Int,
+  claimPartInWaves: Int,
+  powerStakePartInWaves: Int
+)
+```
+
+---
+
+### Finalization
+
+Finalize current period and calculate new Price. 
+- Payment should include payments in any assets to process withdrawal requests.
+- Can only be called by Main Treasury
+
+Arguments:
+- `donationPartInWaves` - New Donated part value in Waves
+- `lpPartInWaves` - New LP part in Waves
+- `claimPartInWaves` - Claim amount in Waves
+- `powerStakePartInWaves` - PWR stake part in Waves
+
+```
+@Callable(i)
+func finalize(
+  donationPartInWaves: Int,
+  lpPartInWaves: Int,
+  claimPartInWaves: Int,
+  powerStakePartInWaves: Int
+)
+```
+
+---
+
+### Helper functions
+
+- Can only be called by Calculator
+
+#### Factory state functions
+
+```
+@Callable(i)
+func stringEntry(key: String, val: String)
+
+@Callable(i)
+func integerEntry(key: String, val: Int)
+
+@Callable(i)
+func booleanEntry(key: String, val: Boolean)
+
+@Callable(i)
+func binaryEntry(key: String, val: ByteVector)
+
+@Callable(i)
+func deleteEntry(key: String)
+```
+
+#### LP Asset functions
+
+```
+@Callable(i)
+func reissue(amount: Int)
+
+@Callable(i)
+func burn(amount: Int)
+```
+
+#### Asset transfer functions
+
+```
+@Callable(i)
+func transferAsset(recipientBytes: ByteVector, amount: Int, assetId: ByteVector)
+
+@Callable(i)
+func transferWaves(recipientBytes: ByteVector, amount: Int)
+```
+
+#### Transfer Waves from Proxy treasury
+
+```
+@Callable(i)
+func transferFromProxyTreasury(recipientBytes: ByteVector, rewardsAmount: Int)
+```

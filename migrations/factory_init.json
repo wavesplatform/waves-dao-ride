@@ -1,0 +1,275 @@
+{
+  "senderPublicKey": "7iwk3fSEypQw8aS1jGbgX19wsMviMu9tAENmGtHir9He",
+  "data": [
+    {
+      "key": "%s__calculator",
+      "type": "string",
+      "value": "3P9eqGUMMYN7AESPJ5KaF15Awzm3uqAgcSa"
+    },
+    {
+      "key": "%s__config",
+      "type": "string",
+      "value": "3PGWhtvCSz1TRJhe3BJSrvQigrtKuyXsgma"
+    },
+    {
+      "key": "%s__proxyTreasury",
+      "type": "string",
+      "value": "3PEgG7eZHLFhcfsTSaYxgRhZsh4AxMvA4Ms"
+    },
+    {
+      "key": "%s__mainTreasury",
+      "type": "string",
+      "value": "3PEwRcYNAUtoFvKpBhKoiwajnZfdoDR6h4h"
+    },
+    {
+      "key": "%s__featureTreasury",
+      "type": "string",
+      "value": "3P7XaCYwKR7x4jLsZ4GwXK3PJZciYuX5DqA"
+    },
+    {
+      "key": "%s__lpAssetId",
+      "type": "string",
+      "value": "HYogWffUjS8Uw4bYA1Dn3qrGmJerMqkf139aJcHhk8yq"
+    },
+    {
+      "key": "%s__currentPeriod",
+      "type": "integer",
+      "value": 0
+    },
+    {
+      "key": "%s__periodLength",
+      "type": "integer",
+      "value": 129600
+    },
+    {
+      "key": "%s%d__startHeight__0",
+      "type": "integer",
+      "value": 3644396
+    },
+    {
+      "key": "%s%d__price__0",
+      "type": "integer",
+      "value": 100000000
+    },
+    {
+      "key": "%s__nextBlockToProcess",
+      "type": "integer",
+      "value": 3720000
+    },
+    {
+      "key": "%s%s__invested__WAVES",
+      "type": "integer",
+      "value": 122581754945
+    },
+    {
+      "key": "%s%s__donated__WAVES",
+      "type": "integer",
+      "value": 65116200000000
+    },
+    {
+      "key": "%s__blockProcessingReward",
+      "type": "integer",
+      "value": 500000
+    },
+    {
+      "key": "%s%s__available__3P2EDoG2nxrXGwcGT8RkGhWJje61ZMCuXr3",
+      "type": "integer",
+      "value": 5000000000
+    },
+    {
+      "key": "%s%s__available__3P2ZqavVvTP8HA8uz2sjp3NtoUdUWDUVSL4",
+      "type": "integer",
+      "value": 200000000
+    },
+    {
+      "key": "%s%s__available__3P33dk2pYeVQiVuA9BCE4mTe1nnamrzeb2A",
+      "type": "integer",
+      "value": 100000000
+    },
+    {
+      "key": "%s%s__available__3P46n8PuQ8rEQFfyLiVDdozyuq43KQa7g68",
+      "type": "integer",
+      "value": 100000000
+    },
+    {
+      "key": "%s%s__available__3P4SiBokWCPGe2yytWVecaZmyjUEY1sY65p",
+      "type": "integer",
+      "value": 10000000000
+    },
+    {
+      "key": "%s%s__available__3P5smPV4Lq911ZBJFPun7sibZDATvioGy1b",
+      "type": "integer",
+      "value": 5021811692
+    },
+    {
+      "key": "%s%s__available__3P67EjvAjuJ4FTk9D25zo1Se9tx8K32BeCp",
+      "type": "integer",
+      "value": 100000000
+    },
+    {
+      "key": "%s%s__available__3P6FjQcHZNggULXG8twvbjpsT1sBU8Sh2yv",
+      "type": "integer",
+      "value": 500000000
+    },
+    {
+      "key": "%s%s__available__3P6MixDu7Lrn5mgwQ7zeRZvYkLqR53vUc8y",
+      "type": "integer",
+      "value": 10000000000
+    },
+    {
+      "key": "%s%s__available__3P7Ek7RxbKw1vjG1eoAzKPtQ2q3GiJEzw9n",
+      "type": "integer",
+      "value": 24055943253
+    },
+    {
+      "key": "%s%s__available__3P8VmFGb1ZrvJmBFYRvkVkvrxnGNS17aZxi",
+      "type": "integer",
+      "value": 100000000
+    },
+    {
+      "key": "%s%s__available__3P8qVX189qpoTJZQQQdKS9endHK5sxWsvrd",
+      "type": "integer",
+      "value": 100000000
+    },
+    {
+      "key": "%s%s__available__3P95VmRT1svc9aa5E5vhvkUSmmMHeKX3wLS",
+      "type": "integer",
+      "value": 200000000
+    },
+    {
+      "key": "%s%s__available__3PAHz5G9v3GXSw1sXLdL3g1HrGrSywYWv8P",
+      "type": "integer",
+      "value": 4000000
+    },
+    {
+      "key": "%s%s__available__3PAuU9oc5YmkoHnb4KQMCkxn9ebsykynBCH",
+      "type": "integer",
+      "value": 10000000000
+    },
+    {
+      "key": "%s%s__available__3PDw45Y9fVoX4vh9BcF5vERTqL4Zsij1f6w",
+      "type": "integer",
+      "value": 200000000
+    },
+    {
+      "key": "%s%s__available__3PE4NAyqUCgb2nfUBxdodXg7VhaAFs8xm2Q",
+      "type": "integer",
+      "value": 100000000
+    },
+    {
+      "key": "%s%s__available__3PEqqh3tdtGoiaDKGnWL28XrFD6ibb3B1ns",
+      "type": "integer",
+      "value": 100000000
+    },
+    {
+      "key": "%s%s__available__3PFT1THjRyWssFaKRuBrqhq9HteKPd2GDBm",
+      "type": "integer",
+      "value": 500000000
+    },
+    {
+      "key": "%s%s__available__3PGDywXYEdWACTs8rksuX9dxS3uGoWQpPyb",
+      "type": "integer",
+      "value": 5000000000
+    },
+    {
+      "key": "%s%s__available__3PGLsuxuRSnmYXX1TDevrXwQDED4NWdJSjw",
+      "type": "integer",
+      "value": 100000000
+    },
+    {
+      "key": "%s%s__available__3PHFAavxj2ePJqFB46H2aRGA7oQL6kz1rJJ",
+      "type": "integer",
+      "value": 1000000000
+    },
+    {
+      "key": "%s%s__available__3PJmNd7oXYHqDD92xYH4f6zxNxEV45togP3",
+      "type": "integer",
+      "value": 1000000000
+    },
+    {
+      "key": "%s%s__available__3PK2p9Kz82a9JsvLtEZb5rZEgxpqBvGbz3V",
+      "type": "integer",
+      "value": 100000000
+    },
+    {
+      "key": "%s%s__available__3PKmahfMDZ2LFF76qf2Xd4TR14f4qWXuUY4",
+      "type": "integer",
+      "value": 100000000
+    },
+    {
+      "key": "%s%s__available__3PLywPiMYmwbKNEBJLvAbjEnkH1mLs57RjH",
+      "type": "integer",
+      "value": 200000000
+    },
+    {
+      "key": "%s%s__available__3PM3AZ7zQ5nz2La92f2g3MGcMVBLXGd5fZV",
+      "type": "integer",
+      "value": 5000000000
+    },
+    {
+      "key": "%s%s__available__3PMFevCLzPhbEUfTxK5bADhxyktttrSWEb6",
+      "type": "integer",
+      "value": 1000000000
+    },
+    {
+      "key": "%s%s__available__3PPEMdjkKiYE37eNk6h2Qw7U2mxg2VzGv71",
+      "type": "integer",
+      "value": 100000000
+    },
+    {
+      "key": "%s%s__available__3PPKWarUghNtYWW3viy3YSStxWmqGnywdW8",
+      "type": "integer",
+      "value": 2000000000
+    },
+    {
+      "key": "%s%s__available__3PPMeqbiarMsqpvnKsz8UMr14Zp3D22TzQF",
+      "type": "integer",
+      "value": 200000000
+    },
+    {
+      "key": "%s%s__available__3PPWaEsPDH6mRs7X7kE7wC7Ctn7c5NUViNd",
+      "type": "integer",
+      "value": 15000000000
+    },
+    {
+      "key": "%s%s__available__3PPqxqzL6wiw59GPAc2j3YHcmFxRNzyjQxL",
+      "type": "integer",
+      "value": 100000000
+    },
+    {
+      "key": "%s%s__available__3PQB4e2fMDXLj85PahjJMjbdHrH1jskpxVJ",
+      "type": "integer",
+      "value": 100000000
+    },
+    {
+      "key": "%s%s__available__3PQGtJCM4G8Gf51ebZNk4cWMM288CmR8FaS",
+      "type": "integer",
+      "value": 100000000
+    },
+    {
+      "key": "%s%s__available__3PQH4tvDSiA1Yyc8YtPXCeZFXNnY4D6wCxd",
+      "type": "integer",
+      "value": 100000000
+    },
+    {
+      "key": "%s%s__available__3PQhGvLgHdUt4GviS8wX5ZwqAZQPv5mnUoi",
+      "type": "integer",
+      "value": 25000000000
+    },
+    {
+      "key": "%s__adminAddressList",
+      "type": "string",
+      "value": "3PBUguU83ccjXz7NBbR3vn67fVHawbxwaTH__3PLU2bd4CDhHC35bf5qsQxYLpkEkpgkrcvc__3PF3AgB3cEE8F9ZUxuA9aLyM2PBjKrrszZQ__3PHdaP2BLUXFacnqZm6WoFjidvzqZZMbb8j__3P33RBZUXcdx5JW918DqFfrscEuEZpAPUPz"
+    },
+    {
+      "key": "%s__managerPublicKey",
+      "type": "string",
+      "value": "8FkC1gHej3uofJ24ba24sYfbsmUvoZsrwKpf67v3chYM"
+    }
+  ],
+  "proofs": [],
+  "fee": 300000,
+  "type": 12,
+  "version": 2,
+  "chainId": 87
+}
