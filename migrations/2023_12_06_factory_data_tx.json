@@ -1,0 +1,19 @@
+{
+    "senderPublicKey": "7iwk3fSEypQw8aS1jGbgX19wsMviMu9tAENmGtHir9He",
+    "data": [
+        {
+            "key": "%s__l2mpAssetId",
+            "type": "string",
+            "value": "7scqyYoVsNrpWbTAc78eRqNVcYLxMPzZs8EQfX7ruJAg"
+        },
+        {
+            "key": "%s__l2mpProxy",
+            "type": "string",
+            "value": ""
+        }
+    ],
+    "proofs": [],
+    "fee": 500000,
+    "type": 12,
+    "version": 2
+}
