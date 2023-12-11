@@ -10,6 +10,21 @@
             "key": "%s__l2mpProxy",
             "type": "string",
             "value": "3PHZKnwMi7dVAUdJvxMSN885zstyA3yf49t"
+        },
+        {
+            "key": "%s%d__periodReward__1",
+            "type": "string",
+            "value": ""
+        },
+        {
+            "key": "%s%d__periodRewardAmount__1",
+            "type": "string",
+            "value": ""
+        },
+        {
+            "key": "%s__calculator",
+            "type": "string",
+            "value": "3P7K135m6R2Yyx9q2kW4asTcDFKNzaVJRvp"
         }
     ],
     "proofs": [],
