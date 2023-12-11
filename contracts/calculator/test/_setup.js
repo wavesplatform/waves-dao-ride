@@ -41,6 +41,7 @@ export const setup = async ({
     'businessTreasury',
     'powerContract',
     'swapContract',
+    'l2mpProxy',
     'user1'
   ]
   const accounts = Object.fromEntries(names.map((item) => {
@@ -97,6 +98,21 @@ export const setup = async ({
     chainId
   }, accounts.treasury.seed))
 
+  const { id: l2mpAssetId } = await broadcastAndWait(issue({
+    name: 'L2MP',
+    description: 'L2MP',
+    quantity: powerAmountToIssue,
+    decimals: 8,
+    reissuable: true,
+    chainId
+  }, accounts.treasury.seed))
+
+  await broadcastAndWait(massTransfer({
+    transfers: Object.values(accounts).map(({ address }) => ({ recipient: address, amount })),
+    assetId: l2mpAssetId,
+    chainId
+  }, accounts.treasury.seed))
+
   await broadcastAndWait(data({
     additionalFee: 4e5,
     data: [
@@ -133,7 +149,9 @@ export const setup = async ({
       { key: '%s__investPeriodLength', type: 'integer', value: investPeriodLength },
       { key: '%s__blockProcessingReward', type: 'integer', value: blockProcessingReward },
       { key: '%s%s__invested__WAVES', type: 'integer', value: investedWavesAmount },
-      { key: '%s%s__donated__WAVES', type: 'integer', value: donatedWavesAmount }
+      { key: '%s%s__donated__WAVES', type: 'integer', value: donatedWavesAmount },
+      { key: '%s__l2mpAssetId', type: 'string', value: l2mpAssetId },
+      { key: '%s__l2mpProxy', type: 'string', value: accounts.l2mpProxy.address }
     ],
     chainId
   }, accounts.factory.seed))
@@ -144,5 +162,5 @@ export const setup = async ({
   await setScriptFromFile(powerContractPath, accounts.powerContract.seed)
   await setScriptFromFile(swapContractPath, accounts.swapContract.seed)
 
-  return { accounts, lpAssetId, powerAssetId, periodLength, blockProcessingReward, price }
+  return { accounts, lpAssetId, powerAssetId, periodLength, blockProcessingReward, price, l2mpAssetId }
 }

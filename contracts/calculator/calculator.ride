@@ -42,6 +42,8 @@ func keyBusinessTreasuryPart() = ["%s", "businessTreasuryPart"].makeString(SEP)
 func keyPowerContractAddress() = ["%s", "powerContract"].makeString(SEP)
 func keyPowerShareRatio() = ["%s", "powerShareRatio"].makeString(SEP)    # Scale 10^8, For example 0.2 = 2000_0000
 func keyPowerAssetId() = ["%s", "powerAssetId"].makeString(SEP)
+func keyL2mpAssetId() = ["%s", "l2mpAssetId"].makeString(SEP)
+func keyL2mpProxyAddress() = ["%s", "l2mpProxy"].makeString(SEP)
 func keyInvested(assetId: ByteVector|Unit) = ["%s%s", "invested", assetIdToString(assetId)].makeString(SEP)
 func keyDonated(assetId: ByteVector|Unit) = ["%s%s", "donated", assetIdToString(assetId)].makeString(SEP)
 func keyAvailable(userAddress: Address) = ["%s%s", "available", userAddress.toString()].makeString(SEP)
@@ -142,6 +144,17 @@ let powerContractAddressOption = match factoryAddressOption {
 }
 let powerContractAddressOrFail = powerContractAddressOption.valueOrErrorMessage(wrapErr("invalid power contract address"))
 let powerAssetIdStringOrFail = factoryAddressOrFail.getString(keyPowerAssetId()).valueOrErrorMessage(wrapErr("power asset id not found"))
+
+let l2mpProxyAddressOption  = match factoryAddressOption {
+  case a: Address => match a.getString(keyL2mpProxyAddress()) {
+    case s: String => s.addressFromString()
+    case _: Unit => unit
+  }
+  case _: Unit => unit
+}
+let l2mpProxyAddressOrFail = l2mpProxyAddressOption.valueOrErrorMessage(wrapErr("invalid l2mp proxy address"))
+
+let l2mpAssetIdStringOrFail = factoryAddressOrFail.getString(keyL2mpAssetId()).valueOrErrorMessage(wrapErr("l2mp asset id not found"))
 
 func getManagerPublicKeyOrUnit() = {
   match (factoryAddressOption) {
@@ -386,11 +399,18 @@ func finalize(
     let paymentAmount = payment.amount
     let paymentAssetId = payment.assetId
 
-    let newAssetIdsString = "%s" + [assetIdsString, paymentAssetId.assetIdToString()].makeString(SEP)
-    let newAmountsString = "%d" + [amountsString, paymentAmount.toString()].makeString(SEP)
-    let newScriptTransfer = ScriptTransfer(factoryAddressOrFail, paymentAmount, paymentAssetId)
+    # If payment is L2MP send it to proxy address
+    if (paymentAssetId.assetIdToString() == l2mpAssetIdStringOrFail) then {
+      let transferToL2mpProxy = ScriptTransfer(l2mpProxyAddressOrFail, paymentAmount, paymentAssetId)
 
-    (scriptTransfers :+ newScriptTransfer, newAssetIdsString, newAmountsString)
+      (scriptTransfers :+ transferToL2mpProxy, assetIdsString, amountsString)
+    } else {
+      let newAssetIdsString = "%s" + [assetIdsString, paymentAssetId.assetIdToString()].makeString(SEP)
+      let newAmountsString = "%d" + [amountsString, paymentAmount.toString()].makeString(SEP)
+      let newScriptTransfer = ScriptTransfer(factoryAddressOrFail, paymentAmount, paymentAssetId)
+
+      (scriptTransfers :+ newScriptTransfer, newAssetIdsString, newAmountsString)
+    }
   }
 
   let (scriptTransfers, AssetIds, Amounts) = FOLD<10>(i.payments, ([], "", ""), addNewAction)
@@ -604,7 +624,7 @@ func claimCollateral(userAddressBytes: ByteVector, txId: String) = {
   ) = claimCollateralINTERNAL(userAddressBytes, txId.fromBase58String())
 
   let assetsList = assetsString.split_51C(SEP).removeByIndex(0)
-  let amountsList = amountsString.split_51C(SEP).removeByIndex(0)  
+  let amountsList = amountsString.split_51C(SEP).removeByIndex(0)
 
   let factoryActions = [
     factoryAddressOrFail.invoke("deleteEntry", [
