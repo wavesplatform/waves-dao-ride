@@ -42,7 +42,8 @@ export const setup = async ({
     'powerContract',
     'swapContract',
     'l2mpProxy',
-    'user1'
+    'user1',
+    'user2'
   ]
   const accounts = Object.fromEntries(names.map((item) => {
     const seed = `${item}#${nonce}`

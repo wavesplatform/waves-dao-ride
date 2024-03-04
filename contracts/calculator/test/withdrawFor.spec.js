@@ -7,7 +7,7 @@ import { invokeScript } from '@waves/waves-transactions'
 chai.use(chaiAsPromised)
 const { expect } = chai
 
-describe(`[${process.pid}] calculator: withdraw`, () => {
+describe(`[${process.pid}] calculator: withdrawFor`, () => {
   let accounts, lpAssetId
 
   before(async () => {
@@ -31,7 +31,7 @@ describe(`[${process.pid}] calculator: withdraw`, () => {
     const paymentAmount = 1e8
     const { id: txId } = await broadcastAndWait(invokeScript({
       dApp: accounts.factory.address,
-      call: { function: 'withdraw', args: [] },
+      call: { function: 'withdrawFor', args: [{ type: 'string', value: accounts.user2.address }] },
       payment: [{ assetId: lpAssetId, amount: paymentAmount }],
       chainId
     }, accounts.user1.seed))
@@ -40,7 +40,7 @@ describe(`[${process.pid}] calculator: withdraw`, () => {
     expect(totalWithdrawalAmount, 'invalid total withdrawal amount').to.equal(paymentAmount)
     const expectedFactoryBalance = factoryBalanceBefore + paymentAmount
     expect(factoryBalanceAfter, 'invalid factory balance').to.equal(expectedFactoryBalance)
-    const { value: withdrawRequestValue } = await api.addresses.fetchDataKey(accounts.factory.address, `%s%s%s__withdrawal__${accounts.user1.address}__${txId}`)
+    const { value: withdrawRequestValue } = await api.addresses.fetchDataKey(accounts.factory.address, `%s%s%s__withdrawal__${accounts.user2.address}__${txId}`)
     const expectedWithdrawRequestValue = `%s%d%d%s__PENDING__${paymentAmount}__1__SOON`
     expect(withdrawRequestValue, 'invalid withdraw request value').to.equal(expectedWithdrawRequestValue)
   })

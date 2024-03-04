@@ -353,6 +353,10 @@ func withdraw() =
   (nil, calculatorAddressOrFail.reentrantInvoke("withdraw", [i.caller.bytes], i.payments))
 
 @Callable(i)
+func withdrawFor(address: String) =
+  (nil, calculatorAddressOrFail.reentrantInvoke("withdraw", [address.addressFromStringValue().bytes], i.payments))
+
+@Callable(i)
 func cancelWithdraw(txIdStr: String) =
   (nil, calculatorAddressOrFail.reentrantInvoke("cancelWithdraw", [i.caller.bytes, txIdStr.fromBase58String()], i.payments))
 
