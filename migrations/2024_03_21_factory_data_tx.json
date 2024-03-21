@@ -1,0 +1,24 @@
+{
+    "senderPublicKey": "7iwk3fSEypQw8aS1jGbgX19wsMviMu9tAENmGtHir9He",
+    "data": [
+        {
+            "key": "%s__WXDAOShareAmountPerBlock",
+            "type": "integer",
+            "value": 50000000
+        },
+        {
+            "key": "%s__WXDAOTreasury",
+            "type": "string",
+            "value": "3PEA2Mr8CgWXdaosBUK3TqxpWDC4MSofsYn"
+        },
+        {
+            "key": "%s__calculator",
+            "type": "string",
+            "value": "3P7DXYB4LuRzo3jDyQoxbfRkpByp3o64s8X"
+        }
+    ],
+    "proofs": [],
+    "fee": 900000,
+    "type": 12,
+    "version": 2
+}
