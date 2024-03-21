@@ -44,6 +44,9 @@ func keyPowerShareRatio() = ["%s", "powerShareRatio"].makeString(SEP)    # Scale
 func keyPowerAssetId() = ["%s", "powerAssetId"].makeString(SEP)
 func keyL2mpAssetId() = ["%s", "l2mpAssetId"].makeString(SEP)
 func keyL2mpProxyAddress() = ["%s", "l2mpProxy"].makeString(SEP)
+func keyWXDAOShareAmountPerBlock() = ["%s", "WXDAOShareAmountPerBlock"].makeString(SEP) # wavelets per block
+func keyWXDAOTreasuryAddress() = ["%s", "WXDAOTreasury"].makeString(SEP)
+func keyWXDAOShareTotalAmount() = ["%s", "WXDAOShareTotalAmount"].makeString(SEP)
 func keyInvested(assetId: ByteVector|Unit) = ["%s%s", "invested", assetIdToString(assetId)].makeString(SEP)
 func keyDonated(assetId: ByteVector|Unit) = ["%s%s", "donated", assetIdToString(assetId)].makeString(SEP)
 func keyAvailable(userAddress: Address) = ["%s%s", "available", userAddress.toString()].makeString(SEP)
@@ -155,6 +158,15 @@ let l2mpProxyAddressOption  = match factoryAddressOption {
 let l2mpProxyAddressOrFail = l2mpProxyAddressOption.valueOrErrorMessage(wrapErr("invalid l2mp proxy address"))
 
 let l2mpAssetIdStringOrFail = factoryAddressOrFail.getString(keyL2mpAssetId()).valueOrErrorMessage(wrapErr("l2mp asset id not found"))
+
+let wxDAOTreasuryAddressOption  = match factoryAddressOption {
+  case a: Address => match a.getString(keyWXDAOTreasuryAddress()) {
+    case s: String => s.addressFromString()
+    case _: Unit => unit
+  }
+  case _: Unit => unit
+}
+let wxDAOTreasuryAddressOrFail = wxDAOTreasuryAddressOption.valueOrErrorMessage(wrapErr("invalid WXDAO Treasury address"))
 
 func getManagerPublicKeyOrUnit() = {
   match (factoryAddressOption) {
@@ -279,20 +291,21 @@ func getRewardSplit(generatorRewardAmount: Int) = {
   # Share Ratio cannot be more that 1.0 or less than 0.0
   let powerShareRatio = max([0, min([factoryAddressOrFail.getInteger(keyPowerShareRatio()).valueOrElse(0), SCALE8])])
   let businessPartRatio = max([0, min([factoryAddressOrFail.getInteger(keyBusinessTreasuryPart()).valueOrElse(0), SCALE8])])
+  let wxDAOShareAmountPerBlock = factoryAddressOrFail.getInteger(keyWXDAOShareAmountPerBlock()).valueOrElse(0)
   
   let amountToPowerPart = fraction(generatorRewardAmount, powerShareRatio, SCALE8)
   let businessTreasuryAmountPart = fraction(generatorRewardAmount, businessPartRatio, SCALE8)
 
-  let rewardRemainder = generatorRewardAmount - amountToPowerPart - businessTreasuryAmountPart
+  let rewardRemainder = generatorRewardAmount - amountToPowerPart - businessTreasuryAmountPart - wxDAOShareAmountPerBlock
 
   if (rewardRemainder > 0) then
-    (amountToPowerPart, businessTreasuryAmountPart, rewardRemainder)
+    (amountToPowerPart, businessTreasuryAmountPart, rewardRemainder, wxDAOShareAmountPerBlock)
   else 
     throwErr("amount to main treasury cannot be negative")
 }
 
 func calcRewardSplitForAmount(amount: Int) = {
-  let (amountToPowerPart, businessTreasuryAmountPart, rewardRemainder) = getRewardSplit(amount)
+  let (amountToPowerPart, businessTreasuryAmountPart, wxDAOShareAmountPerBlock, rewardRemainder) = getRewardSplit(amount)
   let blockProcessingReward = factoryAddressOrFail
     .getInteger(keyBlockProcessingReward())
     .valueOrErrorMessage(wrapErr("invalid block processing reward"))
@@ -305,7 +318,8 @@ func calcRewardSplitForAmount(amount: Int) = {
     businessTreasuryAmountPart, 
     blockProcessingReward, 
     toLpAmount, 
-    amount
+    amount,
+    wxDAOShareAmountPerBlock
   )
 }
 
@@ -315,6 +329,7 @@ func calcRewardSplitForAmount(amount: Int) = {
 # _3 = blockProcessingReward
 # _4 = toLpAmount
 # _5 = totalAmount
+# _6 = wxDAOShareAmount
 @Callable(i)
 func rewardSplitREADONLY() = {
   let targetBlockHeight = height - 1
@@ -735,7 +750,7 @@ func processBlocks(userAddressBytes: ByteVector) = {
   let blockProcessingRewardByGenerator = blockProcessingReward / blocksProcessingBatchSize
   let blockProcessingRewardByGeneratorRemainder = blockProcessingReward - blockProcessingRewardByGenerator * blocksProcessingBatchSize
   
-  func map(acc: (Int, Int, Int, (Int, List[(String, Int)])), inc: Int) = {
+  func map(acc: (Int, Int, Int, Int, (Int, List[(String, Int)])), inc: Int) = {
     if (inc >= blocksProcessingBatchSize) then {
       acc
     } else {
@@ -752,7 +767,7 @@ func processBlocks(userAddressBytes: ByteVector) = {
         blockProcessingRewardByGenerator
       }
 
-      let (shareAmountToPower, businessTreasuryAmountPart, rewardRemainder) = getRewardSplit(treasuryRewardOrFail)
+      let (shareAmountToPower, businessTreasuryAmountPart, rewardRemainder, wxDAOAmountPart) = getRewardSplit(treasuryRewardOrFail)
     
       let lpAssetAmount = if (currentPriceOrFail > 0)
         then fraction(rewardRemainder - callerReward, SCALE8, currentPriceOrFail)
@@ -769,7 +784,8 @@ func processBlocks(userAddressBytes: ByteVector) = {
             treasuryRewardOrFail.toString(),
             callerReward.toString(),
             lpAssetAmount.toString(),
-            shareAmountToPower.toString()
+            shareAmountToPower.toString(),
+            wxDAOAmountPart.toString()
           ], SEP)
         ], []),
         factoryAddressOrFail.invoke("integerEntry", [
@@ -778,7 +794,7 @@ func processBlocks(userAddressBytes: ByteVector) = {
         ], [])
       ]
 
-      let (lpAssetAcc, rewardAcc, businessTreasuryAcc, powerShareDataTuple) = acc
+      let (lpAssetAcc, rewardAcc, businessTreasuryAcc, wxDAOShareAcc, powerShareDataTuple) = acc
       let (powerShareAcc, generatorPowerShareList) = powerShareDataTuple
       let newGeneratorPowerShareList = generatorPowerShareList :+ (generator.toString(), shareAmountToPower)
 
@@ -786,6 +802,7 @@ func processBlocks(userAddressBytes: ByteVector) = {
         lpAssetAcc + lpAssetAmount, 
         rewardAcc + treasuryRewardOrFail, 
         businessTreasuryAcc + businessTreasuryAmountPart, 
+        wxDAOShareAcc + wxDAOAmountPart,
         (powerShareAcc + shareAmountToPower, newGeneratorPowerShareList)
       )
     }
@@ -799,13 +816,16 @@ func processBlocks(userAddressBytes: ByteVector) = {
     lpAssetAmountTotal, 
     rewardAmountTotal,
     rewardToBusinessTreasuryAmount,
+    wxDAOAmountTotal,
     powerShareDataTuple
-  ) = FOLD<20>(list, (0, 0, 0, (0, [])), map)
+  ) = FOLD<20>(list, (0, 0, 0, 0, (0, [])), map)
 
   let (amountToPowerTotal, powerShareAmountsList) = powerShareDataTuple
 
-  let rewardToMainTreasuryAmount = rewardAmountTotal - rewardToBusinessTreasuryAmount - blockProcessingReward - amountToPowerTotal
+  let rewardToMainTreasuryAmount = rewardAmountTotal - rewardToBusinessTreasuryAmount - blockProcessingReward - amountToPowerTotal - wxDAOAmountTotal
   let invested = factoryAddressOrFail.getInteger(keyInvested(unit)).valueOrElse(0)
+
+  let oldWXDAOShareTotalAmount = factoryAddressOrFail.getInteger(keyWXDAOShareTotalAmount()).valueOrElse(0)
 
   strict powerShareActions = if (amountToPowerTotal > 0) then {
     # Send swap amount to factory
@@ -869,6 +889,14 @@ func processBlocks(userAddressBytes: ByteVector) = {
     factoryAddressOrFail.invoke("transferFromProxyTreasury", [
       businessTreasuryAddressOrFail.bytes,
       rewardToBusinessTreasuryAmount
+    ], []),
+    factoryAddressOrFail.invoke("transferFromProxyTreasury", [
+      wxDAOTreasuryAddressOrFail.bytes,
+      wxDAOAmountTotal
+    ], []),
+    factoryAddressOrFail.invoke("integerEntry", [
+      keyWXDAOShareTotalAmount(),
+      oldWXDAOShareTotalAmount + wxDAOAmountTotal
     ], []),
     # increase invested amount
     factoryAddressOrFail.invoke("integerEntry", [

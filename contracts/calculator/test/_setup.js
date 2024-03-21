@@ -42,6 +42,7 @@ export const setup = async ({
     'powerContract',
     'swapContract',
     'l2mpProxy',
+    'WXDAOTreasury',
     'user1'
   ]
   const accounts = Object.fromEntries(names.map((item) => {
@@ -151,7 +152,8 @@ export const setup = async ({
       { key: '%s%s__invested__WAVES', type: 'integer', value: investedWavesAmount },
       { key: '%s%s__donated__WAVES', type: 'integer', value: donatedWavesAmount },
       { key: '%s__l2mpAssetId', type: 'string', value: l2mpAssetId },
-      { key: '%s__l2mpProxy', type: 'string', value: accounts.l2mpProxy.address }
+      { key: '%s__l2mpProxy', type: 'string', value: accounts.l2mpProxy.address },
+      { key: '%s__WXDAOTreasury', type: 'string', value: accounts.WXDAOTreasury.address }
     ],
     chainId
   }, accounts.factory.seed))
